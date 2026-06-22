@@ -19,6 +19,7 @@ export type ChainBlock = {
   blockTime: number | null
   categoryMix: CategoryMix
   dominantCategory: ActivityCategory
+  dominantProgram?: string
   failedTxRatio: number
   programCounts: ProgramCounts
   recency: number
@@ -32,6 +33,7 @@ type SnapshotBlock = {
   blockTime: number | null
   categoryMix?: CategoryMix
   dominantCategory?: ActivityCategory
+  dominantProgram?: string
   failedTxRatio?: number
   programCounts?: ProgramCounts
   slot: number
@@ -119,13 +121,15 @@ export function normalizeBlocks(
     const recency = count === 0 ? 1 : index / count
     const transactionWeight =
       (block.transactions - minTransactions) / transactionRange
-    const size =
-      recency === 1 ? 0.88 : 0.28 + transactionWeight * 0.34 + recency * 0.18
+    const rawSize =
+      recency === 1 ? 0.74 : 0.26 + transactionWeight * 0.3 + recency * 0.14
+    const size = Math.min(0.76, rawSize)
 
     return {
       blockTime: block.blockTime ?? null,
       categoryMix: block.categoryMix ?? getDefaultCategoryMix(),
       dominantCategory: block.dominantCategory ?? 'other',
+      dominantProgram: block.dominantProgram,
       failedTxRatio: block.failedTxRatio ?? 0,
       programCounts: block.programCounts ?? getDefaultProgramCounts(),
       recency,

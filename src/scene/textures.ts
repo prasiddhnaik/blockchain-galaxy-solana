@@ -101,7 +101,24 @@ export function createCircuitTexture() {
   return finishTexture(canvas, 3)
 }
 
-type PlanetKind = 'defi' | 'token' | 'nft' | 'other'
+export type PlanetKind = 'defi' | 'token' | 'nft' | 'other'
+export type PlanetVariant =
+  | 'raydium'
+  | 'orca'
+  | 'jupiter'
+  | 'phoenix'
+  | 'defi-generic'
+  | 'spl-token'
+  | 'token-2022'
+  | 'system'
+  | 'token-generic'
+  | 'magic-eden'
+  | 'tensor'
+  | 'metaplex'
+  | 'nft-generic'
+  | 'rocky-red'
+  | 'rocky-grey'
+  | 'rocky-cratered'
 
 const planetPalettes: Record<
   PlanetKind,
@@ -152,13 +169,29 @@ function drawGasGiant(
   context: CanvasRenderingContext2D,
   size: number,
   palette: (typeof planetPalettes)['defi'],
+  variant: PlanetVariant,
 ) {
+  const variantSettings =
+    ({
+    'defi-generic': { bandScale: 1, storm: false, tint: '#9b3fff' },
+    jupiter: { bandScale: 0.72, storm: true, tint: '#5b2bbd' },
+    orca: { bandScale: 1.42, storm: false, tint: '#3436a7' },
+    phoenix: { bandScale: 0.92, storm: false, tint: '#d647b7' },
+    raydium: { bandScale: 1.08, storm: false, tint: '#b76cff' },
+  } as Partial<
+    Record<PlanetVariant, { bandScale: number; storm: boolean; tint: string }>
+  >)[variant] ?? { bandScale: 1, storm: false, tint: '#9b3fff' }
+
   for (let y = 0; y < size; y += 1) {
     const band =
       0.5 +
-      Math.sin(y * 0.065) * 0.24 +
-      Math.sin(y * 0.19 + 1.7) * 0.11
-    context.fillStyle = mixedColor(palette.dark, palette.accent, band)
+      Math.sin(y * 0.065 * variantSettings.bandScale) * 0.24 +
+      Math.sin(y * 0.19 * variantSettings.bandScale + 1.7) * 0.11
+    context.fillStyle = mixedColor(
+      mixedColor(palette.dark, variantSettings.tint, 0.28),
+      mixedColor(palette.accent, variantSettings.tint, 0.34),
+      band,
+    )
     context.fillRect(0, y, size, 1)
   }
 
@@ -175,23 +208,44 @@ function drawGasGiant(
     context.stroke()
   }
   context.globalAlpha = 1
+
+  if (variantSettings.storm) {
+    context.fillStyle = 'rgba(198, 78, 160, 0.52)'
+    context.beginPath()
+    context.ellipse(size * 0.68, size * 0.58, size * 0.12, size * 0.05, -0.2, 0, Math.PI * 2)
+    context.fill()
+    context.strokeStyle = 'rgba(255, 210, 255, 0.42)'
+    context.lineWidth = 3
+    context.stroke()
+  }
 }
 
 function drawOceanWorld(
   context: CanvasRenderingContext2D,
   size: number,
   palette: (typeof planetPalettes)['token'],
+  variant: PlanetVariant,
 ) {
+  const variantSettings =
+    ({
+    system: { base: '#244cba', accent: '#c6f7ff', clouds: 0.38 },
+    'spl-token': { base: '#168fc6', accent: '#a8fff5', clouds: 0.62 },
+    'token-2022': { base: '#0a5f9e', accent: '#68d9ff', clouds: 0.46 },
+    'token-generic': { base: palette.base, accent: palette.accent, clouds: 0.54 },
+  } as Partial<
+    Record<PlanetVariant, { base: string; accent: string; clouds: number }>
+  >)[variant] ?? { base: palette.base, accent: palette.accent, clouds: 0.54 }
+
   const gradient = context.createLinearGradient(0, 0, size, size)
   gradient.addColorStop(0, palette.dark)
-  gradient.addColorStop(0.52, palette.base)
-  gradient.addColorStop(1, palette.accent)
+  gradient.addColorStop(0.52, variantSettings.base)
+  gradient.addColorStop(1, variantSettings.accent)
   context.fillStyle = gradient
   context.fillRect(0, 0, size, size)
 
-  context.globalAlpha = 0.62
-  for (let i = 0; i < 34; i += 1) {
-    context.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.72)' : '#9ffff5'
+  context.globalAlpha = 0.58
+  for (let i = 0; i < Math.round(22 + variantSettings.clouds * 28); i += 1) {
+    context.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.7)' : variantSettings.accent
     context.beginPath()
     const x = Math.random() * size
     const y = Math.random() * size
@@ -213,7 +267,17 @@ function drawVerdantWorld(
   context: CanvasRenderingContext2D,
   size: number,
   palette: (typeof planetPalettes)['nft'],
+  variant: PlanetVariant,
 ) {
+  const tint =
+    variant === 'magic-eden'
+      ? '#6fff84'
+      : variant === 'tensor'
+        ? '#2cffb6'
+        : variant === 'metaplex'
+          ? '#b2ff5a'
+          : palette.accent
+
   context.fillStyle = palette.dark
   context.fillRect(0, 0, size, size)
 
@@ -226,7 +290,7 @@ function drawVerdantWorld(
       context.fillStyle =
         value > 0.52
           ? mixedColor(palette.base, palette.accent, Math.min(1, value - 0.32))
-          : mixedColor('#12355f', palette.base, value)
+          : mixedColor('#12355f', mixedColor(palette.base, tint, 0.35), value)
       context.fillRect(x, y, 5, 5)
     }
   }
@@ -253,19 +317,29 @@ function drawRockyWorld(
   context: CanvasRenderingContext2D,
   size: number,
   palette: (typeof planetPalettes)['other'],
+  variant: PlanetVariant,
 ) {
-  context.fillStyle = palette.dark
+  const rockyBase =
+    variant === 'rocky-red'
+      ? '#8e5245'
+      : variant === 'rocky-grey'
+        ? palette.base
+        : '#74675a'
+  const craterCount =
+    variant === 'rocky-cratered' ? 64 : variant === 'rocky-red' ? 38 : 46
+
+  context.fillStyle = mixedColor(palette.dark, rockyBase, 0.35)
   context.fillRect(0, 0, size, size)
 
   for (let y = 0; y < size; y += 3) {
     for (let x = 0; x < size; x += 3) {
       const value = 0.3 + Math.abs(noise(x * 0.03, y * 0.03, 9)) * 0.7
-      context.fillStyle = mixedColor(palette.dark, palette.accent, value)
+      context.fillStyle = mixedColor(palette.dark, rockyBase, value)
       context.fillRect(x, y, 4, 4)
     }
   }
 
-  for (let i = 0; i < 44; i += 1) {
+  for (let i = 0; i < craterCount; i += 1) {
     const radius = 4 + Math.random() * 20
     const x = Math.random() * size
     const y = Math.random() * size
@@ -310,19 +384,19 @@ function drawCityLights(
   context.globalAlpha = 1
 }
 
-export function createPlanetTextureSet(kind: PlanetKind) {
+export function createPlanetTextureSet(kind: PlanetKind, variant: PlanetVariant) {
   const palette = planetPalettes[kind]
   const surface = makeCanvas(512)
   const lights = makeCanvas(512)
 
   if (kind === 'defi') {
-    drawGasGiant(surface.context, surface.canvas.width, palette)
+    drawGasGiant(surface.context, surface.canvas.width, palette, variant)
   } else if (kind === 'token') {
-    drawOceanWorld(surface.context, surface.canvas.width, palette)
+    drawOceanWorld(surface.context, surface.canvas.width, palette, variant)
   } else if (kind === 'nft') {
-    drawVerdantWorld(surface.context, surface.canvas.width, palette)
+    drawVerdantWorld(surface.context, surface.canvas.width, palette, variant)
   } else {
-    drawRockyWorld(surface.context, surface.canvas.width, palette)
+    drawRockyWorld(surface.context, surface.canvas.width, palette, variant)
   }
 
   drawCityLights(lights.context, lights.canvas.width, palette.glow)

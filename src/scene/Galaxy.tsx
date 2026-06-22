@@ -13,13 +13,13 @@ import {
 import type { ActivityCategory, ChainBlock, DataSource } from '../data/solana'
 import { useSolanaBlocks } from '../data/solana'
 import { Block } from './Block'
-import { blockPlacements } from './chainCurves'
 import { createPlanetTextureSet } from './textures'
 
 type SceneBlock = ChainBlock & {
   color: string
   id: number
   orbit: OrbitSpec
+  variant: PlanetVariant
 }
 
 type OrbitSpec = {
@@ -50,6 +50,34 @@ const worldTypeLabels: Record<ActivityCategory, string> = {
   other: 'Rocky = Other',
 }
 const activityCategories: ActivityCategory[] = ['defi', 'token', 'nft', 'other']
+const sunRadius = 0.78
+const sunClearanceMargin = sunRadius * 1.85
+const visibleBlockCount = 30
+
+type PlanetVariant =
+  | 'raydium'
+  | 'orca'
+  | 'jupiter'
+  | 'phoenix'
+  | 'defi-generic'
+  | 'spl-token'
+  | 'token-2022'
+  | 'system'
+  | 'token-generic'
+  | 'magic-eden'
+  | 'tensor'
+  | 'metaplex'
+  | 'nft-generic'
+  | 'rocky-red'
+  | 'rocky-grey'
+  | 'rocky-cratered'
+
+const variantFallbacks: Record<ActivityCategory, PlanetVariant[]> = {
+  defi: ['raydium', 'orca', 'jupiter', 'phoenix', 'defi-generic'],
+  token: ['spl-token', 'token-2022', 'system', 'token-generic'],
+  nft: ['magic-eden', 'tensor', 'metaplex', 'nft-generic'],
+  other: ['rocky-red', 'rocky-grey', 'rocky-cratered'],
+}
 
 const visualPolish = {
   bloom: {
@@ -69,6 +97,10 @@ function getDefaultCameraPosition(isNarrow: boolean) {
   return new Vector3(0, isNarrow ? 11.5 : 10.4, isNarrow ? -19 : -17.2)
 }
 
+function getSystemScale(isNarrow: boolean, maxOrbitRadius: number) {
+  return Math.min(isNarrow ? 0.5 : 0.88, (isNarrow ? 8.4 : 10.8) / maxOrbitRadius)
+}
+
 function usePrefersReducedMotion() {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
 
@@ -85,19 +117,53 @@ function usePrefersReducedMotion() {
   return prefersReducedMotion
 }
 
-function createOrbitSpecs(count: number): OrbitSpec[] {
-  const firstRadius = 2.25
-  const gap = 1.18
-  const startingAngles = [1.18, 2.48, 0.38, 2.92, 0.92, 2.02, 0.12, 1.58]
+function resolvePlanetVariant(block: ChainBlock, index: number): PlanetVariant {
+  const programName = block.dominantProgram?.toLowerCase() ?? ''
 
-  return Array.from({ length: count }, (_, index) => {
-    const radius = firstRadius + index * gap
-    const progress = count <= 1 ? 0 : index / (count - 1)
+  if (block.dominantCategory === 'defi') {
+    if (programName.includes('raydium')) return 'raydium'
+    if (programName.includes('orca')) return 'orca'
+    if (programName.includes('jupiter')) return 'jupiter'
+    if (programName.includes('phoenix')) return 'phoenix'
+  }
+
+  if (block.dominantCategory === 'token') {
+    if (programName.includes('token-2022')) return 'token-2022'
+    if (programName.includes('system')) return 'system'
+    if (programName.includes('spl') || programName.includes('token')) return 'spl-token'
+  }
+
+  if (block.dominantCategory === 'nft') {
+    if (programName.includes('magic')) return 'magic-eden'
+    if (programName.includes('tensor')) return 'tensor'
+    if (programName.includes('metaplex')) return 'metaplex'
+  }
+
+  const fallbacks = variantFallbacks[block.dominantCategory]
+  return fallbacks[index % fallbacks.length]
+}
+
+function createOrbitSpecs(blocks: ChainBlock[]): OrbitSpec[] {
+  const startingAngles = [1.12, 2.62, 0.42, 3.14, 0.88, 2.08, 0.08, 1.62]
+  const maxPlanetRadius = Math.max(...blocks.map((block) => block.size), 0.3)
+  let currentRadius = sunRadius + maxPlanetRadius + sunClearanceMargin
+
+  return blocks.map((block, index) => {
+    if (index > 0) {
+      const previousRadius = blocks[index - 1].size
+      const currentPlanetRadius = block.size
+      currentRadius +=
+        previousRadius +
+        currentPlanetRadius +
+        Math.max(sunRadius * 0.78, (previousRadius + currentPlanetRadius) * 0.92)
+    }
+
+    const progress = blocks.length <= 1 ? 0 : index / (blocks.length - 1)
 
     return {
       angle: startingAngles[index % startingAngles.length],
-      radiusX: radius * (1.08 + Math.sin(index * 1.2) * 0.025),
-      radiusZ: radius * (0.56 + Math.cos(index * 0.92) * 0.025),
+      radiusX: currentRadius * (1.1 + Math.sin(index * 1.2) * 0.025),
+      radiusZ: currentRadius * (0.62 + Math.cos(index * 0.92) * 0.025),
       speed: 0.095 - progress * 0.055,
       tilt: -0.12 + Math.sin(index * 0.82) * 0.08,
       y: (index % 3 - 1) * 0.08,
@@ -130,12 +196,33 @@ function BlockchainScene({
     () => new Vector3(0, isNarrow ? -0.72 : -0.2, 0),
     [isNarrow],
   )
+  const maxOrbitRadius = useMemo(
+    () =>
+      Math.max(
+        ...blocks.map((block) => Math.max(block.orbit.radiusX, block.orbit.radiusZ)),
+        1,
+      ),
+    [blocks],
+  )
+  const systemScale = getSystemScale(isNarrow, maxOrbitRadius)
   const planetTextures = useMemo(
     () => ({
-      defi: createPlanetTextureSet('defi'),
-      token: createPlanetTextureSet('token'),
-      nft: createPlanetTextureSet('nft'),
-      other: createPlanetTextureSet('other'),
+      'defi-generic': createPlanetTextureSet('defi', 'defi-generic'),
+      jupiter: createPlanetTextureSet('defi', 'jupiter'),
+      orca: createPlanetTextureSet('defi', 'orca'),
+      phoenix: createPlanetTextureSet('defi', 'phoenix'),
+      raydium: createPlanetTextureSet('defi', 'raydium'),
+      system: createPlanetTextureSet('token', 'system'),
+      'spl-token': createPlanetTextureSet('token', 'spl-token'),
+      'token-2022': createPlanetTextureSet('token', 'token-2022'),
+      'token-generic': createPlanetTextureSet('token', 'token-generic'),
+      'magic-eden': createPlanetTextureSet('nft', 'magic-eden'),
+      metaplex: createPlanetTextureSet('nft', 'metaplex'),
+      'nft-generic': createPlanetTextureSet('nft', 'nft-generic'),
+      tensor: createPlanetTextureSet('nft', 'tensor'),
+      'rocky-cratered': createPlanetTextureSet('other', 'rocky-cratered'),
+      'rocky-grey': createPlanetTextureSet('other', 'rocky-grey'),
+      'rocky-red': createPlanetTextureSet('other', 'rocky-red'),
     }),
     [],
   )
@@ -288,14 +375,14 @@ function BlockchainScene({
       <group
         ref={galaxyRef}
         position={baseGroupPosition}
-        scale={isNarrow ? 0.5 : 0.88}
+        scale={systemScale}
       >
         <Sun />
         {blocks.map((block) => (
           <OrbitLine key={`orbit-${block.id}`} orbit={block.orbit} />
         ))}
         {blocks.map((block, index) => {
-          const textures = planetTextures[block.dominantCategory]
+          const textures = planetTextures[block.variant]
 
           return (
             <OrbitingPlanet
@@ -379,7 +466,7 @@ function OrbitingPlanet({
         categoryColor={block.color}
         cityLightsMap={cityLightsMap}
         failedTxRatio={block.failedTxRatio}
-        hasRing={block.dominantCategory === 'defi'}
+        hasRing={block.dominantCategory === 'defi' && block.size >= 0.44}
         hot={block.recency === 1}
         id={id}
         isSelected={isSelected}
@@ -439,11 +526,11 @@ function Sun() {
 }
 
 export function Galaxy() {
-  const chainData = useSolanaBlocks(blockPlacements.length)
+  const chainData = useSolanaBlocks(visibleBlockCount)
   const prefersReducedMotion = usePrefersReducedMotion()
   const orbitSpecs = useMemo(
-    () => createOrbitSpecs(chainData.blocks.length),
-    [chainData.blocks.length],
+    () => createOrbitSpecs(chainData.blocks),
+    [chainData.blocks],
   )
   const blocks = useMemo<SceneBlock[]>(
     () =>
@@ -455,6 +542,7 @@ export function Galaxy() {
           color,
           id: index,
           orbit: orbitSpecs[index],
+          variant: resolvePlanetVariant(block, index),
         }
       }),
     [chainData.blocks, orbitSpecs],

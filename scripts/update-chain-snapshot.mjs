@@ -3,7 +3,7 @@ import { rename, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const RPC_URL = 'https://api.mainnet-beta.solana.com'
-const BLOCK_COUNT = 8
+const BLOCK_COUNT = 30
 const PROGRAM_COUNTS = {
   defi: 0,
   infra: 0,
@@ -69,6 +69,26 @@ const CATEGORY_PROGRAMS = {
   vote: new Set(['Vote111111111111111111111111111111111111111']),
 }
 const ACTIVITY_PRIORITY = ['defi', 'nft', 'token', 'other']
+const PROGRAM_LABELS = new Map([
+  ['JUP2jxvS5ji3Yj2hfRCKW3tnL3hq6h3JNsxFYgNn3n9', 'Jupiter'],
+  ['JUP3c2Uhhu0g8Q6NDtY9CgzGbSadtWSJbAQGtD2q7SU', 'Jupiter'],
+  ['JUP4Fb2cqiRUcaTHdrPC8h2gNsA2ETXiPDD33WcGuJB', 'Jupiter'],
+  ['JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', 'Jupiter'],
+  ['675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8', 'Raydium'],
+  ['CAMMCzo5YL8w4VFF8KVHrK22GGUQpVTaW7grrKgrWqK', 'Raydium'],
+  ['CPMMoo8L3F4NbTegBCKVNwbryeYbJ4YF9t4r5gn1s9y', 'Raydium'],
+  ['5quBtoiQqxF9J9tYNNQDPqBrVgbGpxRFNZbQeTeM2UZa', 'Raydium'],
+  ['whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc', 'Orca'],
+  ['9W959DqEETiGZocYWCQPaJ6nK9joxTywcxSUGWNA3Y3r', 'Orca'],
+  ['PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY', 'Phoenix'],
+  ['11111111111111111111111111111111', 'System'],
+  ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'SPL Token'],
+  ['TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb', 'Token-2022'],
+  ['M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K', 'Magic Eden'],
+  ['TCMPhJdwDryooaGtiocG1u3xcYbRpiJzb283XfCZsDp', 'Tensor'],
+  ['TAMM6ub33ij1mbetoMyVBLeKY5iP41i4UPUJQGkhfsg', 'Tensor'],
+  ['metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s', 'Metaplex'],
+])
 
 function cloneProgramCounts() {
   return { ...PROGRAM_COUNTS }
@@ -141,6 +161,7 @@ function categorizeProgram(programId) {
 
 function summarizeProgramComposition(block) {
   const programCounts = cloneProgramCounts()
+  const selectedProgramHits = new Map()
   let failedTransactions = 0
 
   for (const transactionWithMeta of block.transactions) {
@@ -168,6 +189,23 @@ function summarizeProgramComposition(block) {
 
     if (selectedActivityCategory) {
       programCounts[selectedActivityCategory] += 1
+      const selectedProgramId = instructions
+        .map((instruction) =>
+          getInstructionProgramId(instruction, accountKeys),
+        )
+        .find(
+          (programId) =>
+            categorizeProgram(programId) === selectedActivityCategory,
+        )
+
+      if (selectedProgramId) {
+        const label =
+          PROGRAM_LABELS.get(selectedProgramId) ?? selectedProgramId
+        selectedProgramHits.set(
+          label,
+          (selectedProgramHits.get(label) ?? 0) + 1,
+        )
+      }
     } else if (transactionCategoryCounts.vote > 0) {
       programCounts.vote += 1
     } else if (transactionCategoryCounts.infra > 0) {
@@ -204,6 +242,9 @@ function summarizeProgramComposition(block) {
 
   return {
     categoryMix,
+    dominantProgram:
+      [...selectedProgramHits.entries()].sort(([, countA], [, countB]) => countB - countA)[0]?.[0] ??
+      undefined,
     dominantCategory,
     failedTxRatio,
     programCounts,

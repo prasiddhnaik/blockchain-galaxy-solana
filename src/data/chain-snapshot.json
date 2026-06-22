@@ -1,174 +1,666 @@
 {
-  "generatedAt": "2026-06-21T18:55:24.583Z",
+  "generatedAt": "2026-06-22T11:01:18.969Z",
   "network": "solana-mainnet-beta",
   "rpcUrl": "https://api.mainnet-beta.solana.com",
   "blocks": [
     {
-      "blockTime": 1782068112,
-      "slot": 427999440,
-      "transactions": 1204,
+      "blockTime": 1782125931,
+      "slot": 428144893,
+      "transactions": 1241,
       "categoryMix": {
-        "defi": 0.3809,
-        "token": 0.3198,
-        "nft": 0.002,
-        "other": 0.2974
+        "defi": 0.2914,
+        "token": 0.3496,
+        "nft": 0.0056,
+        "other": 0.3534
       },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.0963,
-      "programCounts": {
-        "defi": 187,
-        "infra": 2,
-        "token": 157,
-        "nft": 1,
-        "vote": 711,
-        "other": 146
-      }
-    },
-    {
-      "blockTime": 1782068113,
-      "slot": 427999441,
-      "transactions": 1096,
-      "categoryMix": {
-        "defi": 0.4134,
-        "token": 0.3144,
-        "nft": 0.0099,
-        "other": 0.2624
-      },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.0803,
-      "programCounts": {
-        "defi": 167,
-        "infra": 0,
-        "token": 127,
-        "nft": 4,
-        "vote": 692,
-        "other": 106
-      }
-    },
-    {
-      "blockTime": 1782068113,
-      "slot": 427999442,
-      "transactions": 1039,
-      "categoryMix": {
-        "defi": 0.4101,
-        "token": 0.2713,
-        "nft": 0.0032,
-        "other": 0.3155
-      },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.0703,
-      "programCounts": {
-        "defi": 130,
-        "infra": 1,
-        "token": 86,
-        "nft": 1,
-        "vote": 721,
-        "other": 100
-      }
-    },
-    {
-      "blockTime": 1782068113,
-      "slot": 427999443,
-      "transactions": 1190,
-      "categoryMix": {
-        "defi": 0.3367,
-        "token": 0.4269,
-        "nft": 0.008,
-        "other": 0.2285
-      },
-      "dominantCategory": "token",
-      "failedTxRatio": 0.0798,
-      "programCounts": {
-        "defi": 168,
-        "infra": 0,
-        "token": 213,
-        "nft": 4,
-        "vote": 691,
-        "other": 114
-      }
-    },
-    {
-      "blockTime": 1782068114,
-      "slot": 427999444,
-      "transactions": 1179,
-      "categoryMix": {
-        "defi": 0.4418,
-        "token": 0.2857,
-        "nft": 0,
-        "other": 0.2725
-      },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.1238,
-      "programCounts": {
-        "defi": 201,
-        "infra": 1,
-        "token": 130,
-        "nft": 0,
-        "vote": 723,
-        "other": 124
-      }
-    },
-    {
-      "blockTime": 1782068114,
-      "slot": 427999445,
-      "transactions": 1156,
-      "categoryMix": {
-        "defi": 0.4009,
-        "token": 0.2918,
-        "nft": 0.0022,
-        "other": 0.3051
-      },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.1427,
-      "programCounts": {
-        "defi": 180,
-        "infra": 0,
-        "token": 131,
-        "nft": 1,
-        "vote": 707,
-        "other": 137
-      }
-    },
-    {
-      "blockTime": 1782068115,
-      "slot": 427999446,
-      "transactions": 1112,
-      "categoryMix": {
-        "defi": 0.3818,
-        "token": 0.3498,
-        "nft": 0,
-        "other": 0.2685
-      },
-      "dominantCategory": "defi",
-      "failedTxRatio": 0.0827,
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1257,
       "programCounts": {
         "defi": 155,
         "infra": 0,
-        "token": 142,
-        "nft": 0,
-        "vote": 706,
-        "other": 109
+        "token": 186,
+        "nft": 3,
+        "vote": 709,
+        "other": 188
       }
     },
     {
-      "blockTime": 1782068115,
-      "slot": 427999447,
-      "transactions": 1035,
+      "blockTime": 1782125932,
+      "slot": 428144894,
+      "transactions": 1433,
       "categoryMix": {
-        "defi": 0.3354,
-        "token": 0.3138,
-        "nft": 0.0031,
-        "other": 0.3477
+        "defi": 0.2448,
+        "token": 0.3088,
+        "nft": 0.0014,
+        "other": 0.4451
       },
+      "dominantProgram": "System",
       "dominantCategory": "other",
-      "failedTxRatio": 0.0715,
+      "failedTxRatio": 0.157,
       "programCounts": {
-        "defi": 109,
+        "defi": 176,
+        "infra": 0,
+        "token": 222,
+        "nft": 1,
+        "vote": 714,
+        "other": 320
+      }
+    },
+    {
+      "blockTime": 1782125932,
+      "slot": 428144895,
+      "transactions": 1251,
+      "categoryMix": {
+        "defi": 0.3364,
+        "token": 0.2994,
+        "nft": 0.0018,
+        "other": 0.3623
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1127,
+      "programCounts": {
+        "defi": 182,
+        "infra": 0,
+        "token": 162,
+        "nft": 1,
+        "vote": 710,
+        "other": 196
+      }
+    },
+    {
+      "blockTime": 1782125932,
+      "slot": 428144896,
+      "transactions": 1309,
+      "categoryMix": {
+        "defi": 0.3473,
+        "token": 0.2466,
+        "nft": 0.0017,
+        "other": 0.4044
+      },
+      "dominantProgram": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1238,
+      "programCounts": {
+        "defi": 207,
+        "infra": 0,
+        "token": 147,
+        "nft": 1,
+        "vote": 713,
+        "other": 241
+      }
+    },
+    {
+      "blockTime": 1782125933,
+      "slot": 428144897,
+      "transactions": 1086,
+      "categoryMix": {
+        "defi": 0.3325,
+        "token": 0.2423,
+        "nft": 0.0026,
+        "other": 0.4227
+      },
+      "dominantProgram": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1059,
+      "programCounts": {
+        "defi": 129,
+        "infra": 0,
+        "token": 94,
+        "nft": 1,
+        "vote": 698,
+        "other": 164
+      }
+    },
+    {
+      "blockTime": 1782125933,
+      "slot": 428144898,
+      "transactions": 1100,
+      "categoryMix": {
+        "defi": 0.3737,
+        "token": 0.2368,
+        "nft": 0.0026,
+        "other": 0.3868
+      },
+      "dominantProgram": "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.0964,
+      "programCounts": {
+        "defi": 142,
+        "infra": 0,
+        "token": 90,
+        "nft": 1,
+        "vote": 720,
+        "other": 147
+      }
+    },
+    {
+      "blockTime": 1782125934,
+      "slot": 428144899,
+      "transactions": 1138,
+      "categoryMix": {
+        "defi": 0.2759,
+        "token": 0.3333,
+        "nft": 0.0023,
+        "other": 0.3885
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.0861,
+      "programCounts": {
+        "defi": 120,
+        "infra": 0,
+        "token": 145,
+        "nft": 1,
+        "vote": 703,
+        "other": 169
+      }
+    },
+    {
+      "blockTime": 1782125934,
+      "slot": 428144900,
+      "transactions": 1660,
+      "categoryMix": {
+        "defi": 0.197,
+        "token": 0.454,
+        "nft": 0.0021,
+        "other": 0.3469
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.094,
+      "programCounts": {
+        "defi": 184,
+        "infra": 0,
+        "token": 424,
+        "nft": 2,
+        "vote": 726,
+        "other": 324
+      }
+    },
+    {
+      "blockTime": 1782125934,
+      "slot": 428144901,
+      "transactions": 1274,
+      "categoryMix": {
+        "defi": 0.2455,
+        "token": 0.4677,
+        "nft": 0,
+        "other": 0.2867
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0926,
+      "programCounts": {
+        "defi": 137,
+        "infra": 2,
+        "token": 261,
+        "nft": 0,
+        "vote": 714,
+        "other": 160
+      }
+    },
+    {
+      "blockTime": 1782125935,
+      "slot": 428144902,
+      "transactions": 1227,
+      "categoryMix": {
+        "defi": 0.2785,
+        "token": 0.3656,
+        "nft": 0.0039,
+        "other": 0.352
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1125,
+      "programCounts": {
+        "defi": 144,
+        "infra": 0,
+        "token": 189,
+        "nft": 2,
+        "vote": 710,
+        "other": 182
+      }
+    },
+    {
+      "blockTime": 1782125935,
+      "slot": 428144903,
+      "transactions": 1168,
+      "categoryMix": {
+        "defi": 0.2725,
+        "token": 0.4154,
+        "nft": 0.0022,
+        "other": 0.3099
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0873,
+      "programCounts": {
+        "defi": 124,
+        "infra": 0,
+        "token": 189,
+        "nft": 1,
+        "vote": 713,
+        "other": 141
+      }
+    },
+    {
+      "blockTime": 1782125936,
+      "slot": 428144904,
+      "transactions": 1267,
+      "categoryMix": {
+        "defi": 0.2194,
+        "token": 0.4209,
+        "nft": 0,
+        "other": 0.3597
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1042,
+      "programCounts": {
+        "defi": 122,
+        "infra": 0,
+        "token": 234,
+        "nft": 0,
+        "vote": 711,
+        "other": 200
+      }
+    },
+    {
+      "blockTime": 1782125936,
+      "slot": 428144905,
+      "transactions": 1250,
+      "categoryMix": {
+        "defi": 0.2614,
+        "token": 0.3839,
+        "nft": 0,
+        "other": 0.3547
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0952,
+      "programCounts": {
+        "defi": 143,
+        "infra": 0,
+        "token": 210,
+        "nft": 0,
+        "vote": 703,
+        "other": 194
+      }
+    },
+    {
+      "blockTime": 1782125936,
+      "slot": 428144906,
+      "transactions": 1287,
+      "categoryMix": {
+        "defi": 0.2587,
+        "token": 0.434,
+        "nft": 0,
+        "other": 0.3073
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0971,
+      "programCounts": {
+        "defi": 149,
+        "infra": 3,
+        "token": 250,
+        "nft": 0,
+        "vote": 708,
+        "other": 177
+      }
+    },
+    {
+      "blockTime": 1782125937,
+      "slot": 428144907,
+      "transactions": 1445,
+      "categoryMix": {
+        "defi": 0.2951,
+        "token": 0.3402,
+        "nft": 0,
+        "other": 0.3648
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1266,
+      "programCounts": {
+        "defi": 216,
+        "infra": 0,
+        "token": 249,
+        "nft": 0,
+        "vote": 713,
+        "other": 267
+      }
+    },
+    {
+      "blockTime": 1782125937,
+      "slot": 428144908,
+      "transactions": 1096,
+      "categoryMix": {
+        "defi": 0.1503,
+        "token": 0.4093,
+        "nft": 0,
+        "other": 0.4404
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.0557,
+      "programCounts": {
+        "defi": 58,
+        "infra": 0,
+        "token": 158,
+        "nft": 0,
+        "vote": 710,
+        "other": 170
+      }
+    },
+    {
+      "blockTime": 1782125938,
+      "slot": 428144909,
+      "transactions": 1208,
+      "categoryMix": {
+        "defi": 0.2536,
+        "token": 0.4008,
+        "nft": 0,
+        "other": 0.3456
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0985,
+      "programCounts": {
+        "defi": 124,
+        "infra": 0,
+        "token": 196,
+        "nft": 0,
+        "vote": 719,
+        "other": 169
+      }
+    },
+    {
+      "blockTime": 1782125938,
+      "slot": 428144910,
+      "transactions": 1241,
+      "categoryMix": {
+        "defi": 0.2618,
+        "token": 0.4256,
+        "nft": 0.0038,
+        "other": 0.3089
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0927,
+      "programCounts": {
+        "defi": 139,
+        "infra": 0,
+        "token": 226,
+        "nft": 2,
+        "vote": 710,
+        "other": 164
+      }
+    },
+    {
+      "blockTime": 1782125938,
+      "slot": 428144911,
+      "transactions": 1400,
+      "categoryMix": {
+        "defi": 0.2999,
+        "token": 0.4236,
+        "nft": 0,
+        "other": 0.2766
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1114,
+      "programCounts": {
+        "defi": 206,
+        "infra": 0,
+        "token": 291,
+        "nft": 0,
+        "vote": 713,
+        "other": 190
+      }
+    },
+    {
+      "blockTime": 1782125939,
+      "slot": 428144912,
+      "transactions": 1257,
+      "categoryMix": {
+        "defi": 0.2336,
+        "token": 0.4617,
+        "nft": 0,
+        "other": 0.3047
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0859,
+      "programCounts": {
+        "defi": 125,
         "infra": 1,
-        "token": 102,
+        "token": 247,
+        "nft": 0,
+        "vote": 721,
+        "other": 163
+      }
+    },
+    {
+      "blockTime": 1782125939,
+      "slot": 428144913,
+      "transactions": 1103,
+      "categoryMix": {
+        "defi": 0.3144,
+        "token": 0.3582,
+        "nft": 0,
+        "other": 0.3273
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.0843,
+      "programCounts": {
+        "defi": 122,
+        "infra": 0,
+        "token": 139,
+        "nft": 0,
+        "vote": 715,
+        "other": 127
+      }
+    },
+    {
+      "blockTime": 1782125940,
+      "slot": 428144914,
+      "transactions": 1228,
+      "categoryMix": {
+        "defi": 0.2829,
+        "token": 0.469,
+        "nft": 0,
+        "other": 0.2481
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1002,
+      "programCounts": {
+        "defi": 146,
+        "infra": 0,
+        "token": 242,
+        "nft": 0,
+        "vote": 712,
+        "other": 128
+      }
+    },
+    {
+      "blockTime": 1782125940,
+      "slot": 428144915,
+      "transactions": 1188,
+      "categoryMix": {
+        "defi": 0.411,
+        "token": 0.2754,
+        "nft": 0,
+        "other": 0.3136
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "defi",
+      "failedTxRatio": 0.1372,
+      "programCounts": {
+        "defi": 194,
+        "infra": 0,
+        "token": 130,
+        "nft": 0,
+        "vote": 716,
+        "other": 148
+      }
+    },
+    {
+      "blockTime": 1782125940,
+      "slot": 428144916,
+      "transactions": 1179,
+      "categoryMix": {
+        "defi": 0.305,
+        "token": 0.3926,
+        "nft": 0.0027,
+        "other": 0.2997
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1298,
+      "programCounts": {
+        "defi": 115,
+        "infra": 4,
+        "token": 148,
+        "nft": 1,
+        "vote": 798,
+        "other": 113
+      }
+    },
+    {
+      "blockTime": 1782125941,
+      "slot": 428144917,
+      "transactions": 1205,
+      "categoryMix": {
+        "defi": 0.2536,
+        "token": 0.3691,
+        "nft": 0,
+        "other": 0.3773
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1253,
+      "programCounts": {
+        "defi": 123,
+        "infra": 4,
+        "token": 179,
+        "nft": 0,
+        "vote": 716,
+        "other": 183
+      }
+    },
+    {
+      "blockTime": 1782125941,
+      "slot": 428144918,
+      "transactions": 1185,
+      "categoryMix": {
+        "defi": 0.2733,
+        "token": 0.4428,
+        "nft": 0,
+        "other": 0.2839
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1173,
+      "programCounts": {
+        "defi": 129,
+        "infra": 0,
+        "token": 209,
+        "nft": 0,
+        "vote": 713,
+        "other": 134
+      }
+    },
+    {
+      "blockTime": 1782125942,
+      "slot": 428144919,
+      "transactions": 1248,
+      "categoryMix": {
+        "defi": 0.2887,
+        "token": 0.3321,
+        "nft": 0,
+        "other": 0.3792
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1394,
+      "programCounts": {
+        "defi": 153,
+        "infra": 3,
+        "token": 176,
+        "nft": 0,
+        "vote": 715,
+        "other": 201
+      }
+    },
+    {
+      "blockTime": 1782125942,
+      "slot": 428144920,
+      "transactions": 1750,
+      "categoryMix": {
+        "defi": 0.2615,
+        "token": 0.3692,
+        "nft": 0.0038,
+        "other": 0.3654
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1251,
+      "programCounts": {
+        "defi": 272,
+        "infra": 0,
+        "token": 384,
+        "nft": 4,
+        "vote": 710,
+        "other": 380
+      }
+    },
+    {
+      "blockTime": 1782125942,
+      "slot": 428144921,
+      "transactions": 1569,
+      "categoryMix": {
+        "defi": 0.3224,
+        "token": 0.3972,
+        "nft": 0.0023,
+        "other": 0.278
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "token",
+      "failedTxRatio": 0.1836,
+      "programCounts": {
+        "defi": 276,
+        "infra": 1,
+        "token": 340,
+        "nft": 2,
+        "vote": 712,
+        "other": 238
+      }
+    },
+    {
+      "blockTime": 1782125943,
+      "slot": 428144922,
+      "transactions": 1264,
+      "categoryMix": {
+        "defi": 0.2937,
+        "token": 0.3405,
+        "nft": 0.0018,
+        "other": 0.364
+      },
+      "dominantProgram": "System",
+      "dominantCategory": "other",
+      "failedTxRatio": 0.1226,
+      "programCounts": {
+        "defi": 163,
+        "infra": 0,
+        "token": 189,
         "nft": 1,
         "vote": 709,
-        "other": 113
+        "other": 202
       }
     }
   ]
