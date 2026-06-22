@@ -177,7 +177,7 @@ export function Block({
           ref={materialRef}
         />
       </mesh>
-      <mesh scale={hot ? 1.02 : 1.016}>
+      <mesh scale={hot ? 1.01 : 1.008}>
         <sphereGeometry args={[size, 32, 32]} />
         <meshBasicMaterial
           alphaTest={0.02}
@@ -186,21 +186,33 @@ export function Block({
           color={atmosphereColor}
           depthWrite={false}
           transparent
-          opacity={hot ? 0.07 : 0.04}
+          opacity={hot ? 0.045 : 0.026}
         />
       </mesh>
       {hasRing && (
-        <mesh rotation={[Math.PI * 0.58, 0.22, Math.PI * 0.08]}>
-          <ringGeometry args={[size * 1.24, size * 1.92, 64]} />
-          <meshBasicMaterial
-            blending={AdditiveBlending}
-            color={atmosphereColor}
-            depthWrite={false}
-            opacity={0.18}
-            side={DoubleSide}
-            transparent
-          />
-        </mesh>
+        <group rotation={[Math.PI * 0.58, 0.22, Math.PI * 0.08]}>
+          <mesh>
+            <ringGeometry args={[size * 1.55, size * 2.16, 96]} />
+            <meshBasicMaterial
+              color={atmosphereColor}
+              depthWrite={false}
+              opacity={0.16}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+          <mesh>
+            <ringGeometry args={[size * 2.32, size * 2.48, 96]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color={atmosphereColor}
+              depthWrite={false}
+              opacity={0.11}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+        </group>
       )}
     </group>
   )

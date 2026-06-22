@@ -66,7 +66,7 @@ const visualPolish = {
 }
 
 function getDefaultCameraPosition(isNarrow: boolean) {
-  return new Vector3(0, isNarrow ? 5.8 : 5.05, isNarrow ? 16.2 : 13.2)
+  return new Vector3(0, isNarrow ? 11.5 : 10.4, isNarrow ? -19 : -17.2)
 }
 
 function usePrefersReducedMotion() {
@@ -86,20 +86,21 @@ function usePrefersReducedMotion() {
 }
 
 function createOrbitSpecs(count: number): OrbitSpec[] {
-  const firstRadius = 1.65
-  const gap = 0.68
+  const firstRadius = 2.25
+  const gap = 1.18
+  const startingAngles = [1.18, 2.48, 0.38, 2.92, 0.92, 2.02, 0.12, 1.58]
 
   return Array.from({ length: count }, (_, index) => {
     const radius = firstRadius + index * gap
     const progress = count <= 1 ? 0 : index / (count - 1)
 
     return {
-      angle: index * 1.74 + 0.35,
-      radiusX: radius * (1.02 + Math.sin(index * 1.2) * 0.045),
-      radiusZ: radius * (0.72 + Math.cos(index * 0.92) * 0.055),
-      speed: 0.145 - progress * 0.09,
-      tilt: -0.22 + Math.sin(index * 0.82) * 0.16,
-      y: (index % 3 - 1) * 0.055,
+      angle: startingAngles[index % startingAngles.length],
+      radiusX: radius * (1.08 + Math.sin(index * 1.2) * 0.025),
+      radiusZ: radius * (0.56 + Math.cos(index * 0.92) * 0.025),
+      speed: 0.095 - progress * 0.055,
+      tilt: -0.12 + Math.sin(index * 0.82) * 0.08,
+      y: (index % 3 - 1) * 0.08,
     }
   })
 }
@@ -262,8 +263,19 @@ function BlockchainScene({
   return (
     <>
       <color attach="background" args={['#070d22']} />
-      <fog attach="fog" args={['#070d22', 12, 28]} />
-      <ambientLight color="#6b7fa8" intensity={0.028} />
+      <fog attach="fog" args={['#070d22', 18, 38]} />
+      <ambientLight color="#8fa7cf" intensity={0.18} />
+      <hemisphereLight
+        args={['#8ea8d8', '#050611', 0.34]}
+        position={[0, 8, -12]}
+      />
+      <pointLight
+        color="#6f85b8"
+        decay={1.7}
+        distance={30}
+        intensity={18}
+        position={[0, 8, -18]}
+      />
       <Stars
         radius={110}
         depth={60}
@@ -276,7 +288,7 @@ function BlockchainScene({
       <group
         ref={galaxyRef}
         position={baseGroupPosition}
-        scale={isNarrow ? 0.72 : 1}
+        scale={isNarrow ? 0.5 : 0.88}
       >
         <Sun />
         {blocks.map((block) => (
@@ -305,8 +317,8 @@ function BlockchainScene({
         dampingFactor={0.06}
         enableDamping
         enablePan={false}
-        maxDistance={20}
-        minDistance={4.8}
+        maxDistance={34}
+        minDistance={6.4}
         ref={controlsRef}
       />
     </>
@@ -411,13 +423,13 @@ function Sun() {
         <sphereGeometry args={[0.78, 48, 48]} />
         <meshBasicMaterial color="#fff2b6" toneMapped={false} />
       </mesh>
-      <mesh scale={1.72}>
+      <mesh scale={1.48}>
         <sphereGeometry args={[0.78, 40, 40]} />
         <meshBasicMaterial
           blending={AdditiveBlending}
           color="#ffb347"
           depthWrite={false}
-          opacity={0.22}
+          opacity={0.13}
           toneMapped={false}
           transparent
         />
@@ -463,7 +475,7 @@ export function Galaxy() {
       {showLegend && <CategoryLegend onDismiss={() => setShowLegend(false)} />}
       <InfoPanel selectedBlock={selectedBlock} source={chainData.source} />
       <Canvas
-        camera={{ position: [0, 2.35, 9.2], fov: 48 }}
+        camera={{ position: [0, 10.4, -17.2], fov: 48 }}
         className={`galaxy-canvas ${isHoveringBlock ? 'is-hovering-block' : ''}`}
         dpr={0.85}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
