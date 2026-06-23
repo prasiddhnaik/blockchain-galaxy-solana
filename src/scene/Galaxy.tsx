@@ -14,6 +14,7 @@ import type { ActivityCategory, ChainBlock, DataSource } from '../data/solana'
 import { useSolanaBlocks } from '../data/solana'
 import { Block } from './Block'
 import { createPlanetTextureSet } from './textures'
+import type { PlanetVariant } from './textures'
 
 type SceneBlock = ChainBlock & {
   color: string
@@ -51,32 +52,37 @@ const worldTypeLabels: Record<ActivityCategory, string> = {
 }
 const activityCategories: ActivityCategory[] = ['defi', 'token', 'nft', 'other']
 const sunRadius = 0.78
+const sunGlowRadius = sunRadius * 1.48
 const sunClearanceMargin = sunRadius * 1.85
-const visibleBlockCount = 30
-
-type PlanetVariant =
-  | 'raydium'
-  | 'orca'
-  | 'jupiter'
-  | 'phoenix'
-  | 'defi-generic'
-  | 'spl-token'
-  | 'token-2022'
-  | 'system'
-  | 'token-generic'
-  | 'magic-eden'
-  | 'tensor'
-  | 'metaplex'
-  | 'nft-generic'
-  | 'rocky-red'
-  | 'rocky-grey'
-  | 'rocky-cratered'
+const orbitSurfaceMargin = sunRadius * 0.38
+const orbitZAspect = 0.88
+const defaultVisibleBlockCount = 30
 
 const variantFallbacks: Record<ActivityCategory, PlanetVariant[]> = {
-  defi: ['raydium', 'orca', 'jupiter', 'phoenix', 'defi-generic'],
-  token: ['spl-token', 'token-2022', 'system', 'token-generic'],
-  nft: ['magic-eden', 'tensor', 'metaplex', 'nft-generic'],
-  other: ['rocky-red', 'rocky-grey', 'rocky-cratered'],
+  defi: ['defi-generic'],
+  token: ['token-generic'],
+  nft: ['nft-generic'],
+  other: ['other-generic'],
+}
+
+const variantSpin: Record<PlanetVariant, number> = {
+  'defi-generic': 0.92,
+  jupiter: 0.72,
+  orca: 0.58,
+  phoenix: 1.08,
+  raydium: 1.18,
+  system: 0.7,
+  'spl-token': 1.02,
+  'token-2022': 1.26,
+  'token-generic': 0.94,
+  'magic-eden': 0.88,
+  metaplex: 0.78,
+  'nft-generic': 0.96,
+  tensor: 1.22,
+  'other-generic': 0.74,
+  'rocky-cratered': 0.62,
+  'rocky-grey': 0.68,
+  'rocky-red': 0.82,
 }
 
 const visualPolish = {
@@ -94,11 +100,28 @@ const visualPolish = {
 }
 
 function getDefaultCameraPosition(isNarrow: boolean) {
-  return new Vector3(0, isNarrow ? 11.5 : 10.4, isNarrow ? -19 : -17.2)
+  return new Vector3(0, isNarrow ? 12.8 : 12.2, isNarrow ? 19.5 : 17.6)
 }
 
 function getSystemScale(isNarrow: boolean, maxOrbitRadius: number) {
   return Math.min(isNarrow ? 0.5 : 0.88, (isNarrow ? 8.4 : 10.8) / maxOrbitRadius)
+}
+
+function getVisibleBlockCount() {
+  const configuredCount = Number(import.meta.env.VITE_BLOCK_COUNT)
+  return Number.isFinite(configuredCount) && configuredCount > 0
+    ? Math.floor(configuredCount)
+    : defaultVisibleBlockCount
+}
+
+function getInitialFocusBlockId() {
+  const rawFocusBlockId = new URLSearchParams(window.location.search).get('focusBlock')
+  if (rawFocusBlockId === null) {
+    return null
+  }
+
+  const focusBlockId = Number(rawFocusBlockId)
+  return Number.isInteger(focusBlockId) && focusBlockId >= 0 ? focusBlockId : null
 }
 
 function usePrefersReducedMotion() {
@@ -139,6 +162,12 @@ function resolvePlanetVariant(block: ChainBlock, index: number): PlanetVariant {
     if (programName.includes('metaplex')) return 'metaplex'
   }
 
+  if (block.dominantCategory === 'other') {
+    if (programName.includes('system')) return 'rocky-grey'
+    if (programName.includes('memo')) return 'rocky-red'
+    if (programName) return 'rocky-cratered'
+  }
+
   const fallbacks = variantFallbacks[block.dominantCategory]
   return fallbacks[index % fallbacks.length]
 }
@@ -146,24 +175,23 @@ function resolvePlanetVariant(block: ChainBlock, index: number): PlanetVariant {
 function createOrbitSpecs(blocks: ChainBlock[]): OrbitSpec[] {
   const startingAngles = [1.12, 2.62, 0.42, 3.14, 0.88, 2.08, 0.08, 1.62]
   const maxPlanetRadius = Math.max(...blocks.map((block) => block.size), 0.3)
-  let currentRadius = sunRadius + maxPlanetRadius + sunClearanceMargin
+  let currentRadius =
+    (sunGlowRadius + maxPlanetRadius + sunClearanceMargin) / orbitZAspect
 
   return blocks.map((block, index) => {
     if (index > 0) {
       const previousRadius = blocks[index - 1].size
       const currentPlanetRadius = block.size
       currentRadius +=
-        previousRadius +
-        currentPlanetRadius +
-        Math.max(sunRadius * 0.78, (previousRadius + currentPlanetRadius) * 0.92)
+        (previousRadius + currentPlanetRadius + orbitSurfaceMargin) / orbitZAspect
     }
 
     const progress = blocks.length <= 1 ? 0 : index / (blocks.length - 1)
 
     return {
       angle: startingAngles[index % startingAngles.length],
-      radiusX: currentRadius * (1.1 + Math.sin(index * 1.2) * 0.025),
-      radiusZ: currentRadius * (0.62 + Math.cos(index * 0.92) * 0.025),
+      radiusX: currentRadius * (1.05 + Math.sin(index * 1.2) * 0.014),
+      radiusZ: currentRadius * orbitZAspect,
       speed: 0.095 - progress * 0.055,
       tilt: -0.12 + Math.sin(index * 0.82) * 0.08,
       y: (index % 3 - 1) * 0.08,
@@ -171,9 +199,19 @@ function createOrbitSpecs(blocks: ChainBlock[]): OrbitSpec[] {
   })
 }
 
+function getOrbitPosition(orbit: OrbitSpec, angle: number) {
+  const orbitSin = Math.sin(angle)
+  return new Vector3(
+    Math.cos(angle) * orbit.radiusX,
+    orbit.y + orbitSin * Math.sin(orbit.tilt) * orbit.radiusZ,
+    orbitSin * orbit.radiusZ,
+  )
+}
+
 function BlockchainScene({
   blocks,
   deselectSignal,
+  initialFocusBlockId,
   onHoverBlock,
   prefersReducedMotion,
   selectedBlockId,
@@ -181,6 +219,7 @@ function BlockchainScene({
 }: {
   blocks: SceneBlock[]
   deselectSignal: number
+  initialFocusBlockId: number | null
   onHoverBlock: (isHovering: boolean) => void
   prefersReducedMotion: boolean
   selectedBlockId: number | null
@@ -220,6 +259,7 @@ function BlockchainScene({
       metaplex: createPlanetTextureSet('nft', 'metaplex'),
       'nft-generic': createPlanetTextureSet('nft', 'nft-generic'),
       tensor: createPlanetTextureSet('nft', 'tensor'),
+      'other-generic': createPlanetTextureSet('other', 'other-generic'),
       'rocky-cratered': createPlanetTextureSet('other', 'rocky-cratered'),
       'rocky-grey': createPlanetTextureSet('other', 'rocky-grey'),
       'rocky-red': createPlanetTextureSet('other', 'rocky-red'),
@@ -303,6 +343,7 @@ function BlockchainScene({
       camera.position.copy(getDefaultCameraPosition(isNarrow))
       controlsRef.current?.target.set(0, 0, 0)
       controlsRef.current?.update()
+      camera.lookAt(0, 0, 0)
       camera.updateProjectionMatrix()
     }
   }, [camera, isNarrow, resumeDelayActive, selectedBlockId])
@@ -388,6 +429,7 @@ function BlockchainScene({
             <OrbitingPlanet
               block={block}
               cityLightsMap={textures.cityLightsMap}
+              initialFocusBlockId={initialFocusBlockId}
               isMotionPaused={selectedBlockId !== null || prefersReducedMotion}
               id={index}
               isSelected={selectedBlockId === index}
@@ -416,6 +458,7 @@ function OrbitingPlanet({
   block,
   cityLightsMap,
   id,
+  initialFocusBlockId,
   isMotionPaused,
   isSelected,
   onHoverChange,
@@ -425,6 +468,7 @@ function OrbitingPlanet({
   block: SceneBlock
   cityLightsMap: ReturnType<typeof createPlanetTextureSet>['cityLightsMap']
   id: number
+  initialFocusBlockId: number | null
   isMotionPaused: boolean
   isSelected: boolean
   onHoverChange: (isHovering: boolean) => void
@@ -432,8 +476,28 @@ function OrbitingPlanet({
   surfaceMap: ReturnType<typeof createPlanetTextureSet>['surfaceMap']
 }) {
   const groupRef = useRef<Group>(null)
+  const hasAutoFocusedRef = useRef(false)
   const localOrigin = useMemo(() => new Vector3(0, 0, 0), [])
   const angleRef = useRef(block.orbit.angle)
+
+  useEffect(() => {
+    if (
+      hasAutoFocusedRef.current ||
+      initialFocusBlockId !== id ||
+      !groupRef.current
+    ) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const worldPosition = getOrbitPosition(block.orbit, angleRef.current)
+      groupRef.current?.parent?.localToWorld(worldPosition)
+      hasAutoFocusedRef.current = true
+      onSelect(id, worldPosition)
+    }, 260)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [block.orbit, id, initialFocusBlockId, onSelect])
 
   useFrame(({ clock }, delta) => {
     const group = groupRef.current
@@ -447,15 +511,10 @@ function OrbitingPlanet({
     }
 
     const angle = angleRef.current
-    const orbitSin = Math.sin(angle)
-    group.position.set(
-      Math.cos(angle) * block.orbit.radiusX,
-      block.orbit.y + orbitSin * Math.sin(block.orbit.tilt) * block.orbit.radiusZ,
-      orbitSin * block.orbit.radiusZ,
-    )
+    group.position.copy(getOrbitPosition(block.orbit, angle))
 
     if (!isMotionPaused) {
-      group.rotation.y += 0.006 + block.recency * 0.005
+      group.rotation.y += (0.0055 + block.recency * 0.0035) * variantSpin[block.variant]
       group.rotation.z = Math.sin(clock.elapsedTime * 0.2 + id) * 0.035
     }
   })
@@ -526,6 +585,8 @@ function Sun() {
 }
 
 export function Galaxy() {
+  const visibleBlockCount = getVisibleBlockCount()
+  const initialFocusBlockId = useMemo(() => getInitialFocusBlockId(), [])
   const chainData = useSolanaBlocks(visibleBlockCount)
   const prefersReducedMotion = usePrefersReducedMotion()
   const orbitSpecs = useMemo(
@@ -547,7 +608,9 @@ export function Galaxy() {
       }),
     [chainData.blocks, orbitSpecs],
   )
-  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(null)
+  const [selectedBlockId, setSelectedBlockId] = useState<number | null>(
+    initialFocusBlockId,
+  )
   const [deselectSignal, setDeselectSignal] = useState(0)
   const [isHoveringBlock, setIsHoveringBlock] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
@@ -563,15 +626,17 @@ export function Galaxy() {
       {showLegend && <CategoryLegend onDismiss={() => setShowLegend(false)} />}
       <InfoPanel selectedBlock={selectedBlock} source={chainData.source} />
       <Canvas
-        camera={{ position: [0, 10.4, -17.2], fov: 48 }}
+        camera={{ position: [0, 12.2, 17.6], fov: 48, rotation: [-0.606, 0, 0] }}
         className={`galaxy-canvas ${isHoveringBlock ? 'is-hovering-block' : ''}`}
         dpr={0.85}
         gl={{ antialias: true, toneMapping: ACESFilmicToneMapping }}
+        onCreated={({ camera }) => camera.lookAt(0, 0, 0)}
         onPointerMissed={() => setDeselectSignal((signal) => signal + 1)}
       >
         <BlockchainScene
           blocks={blocks}
           deselectSignal={deselectSignal}
+          initialFocusBlockId={initialFocusBlockId}
           onHoverBlock={setIsHoveringBlock}
           prefersReducedMotion={prefersReducedMotion}
           selectedBlockId={selectedBlockId}

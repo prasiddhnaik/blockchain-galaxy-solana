@@ -116,6 +116,7 @@ export type PlanetVariant =
   | 'tensor'
   | 'metaplex'
   | 'nft-generic'
+  | 'other-generic'
   | 'rocky-red'
   | 'rocky-grey'
   | 'rocky-cratered'
@@ -130,35 +131,48 @@ const planetPalettes: Record<
   }
 > = {
   defi: {
-    base: '#7c3dcc',
-    accent: '#d7a5ff',
-    dark: '#32124f',
+    base: '#8f37ff',
+    accent: '#f0b6ff',
+    dark: '#2f075f',
     glow: '#9b3fff',
   },
   token: {
-    base: '#1c91c8',
-    accent: '#a8fff5',
-    dark: '#0b3568',
+    base: '#11cfff',
+    accent: '#d9fffb',
+    dark: '#034b7c',
     glow: '#28ffe7',
   },
   nft: {
-    base: '#2ba466',
-    accent: '#a6ffb6',
-    dark: '#164827',
+    base: '#20d96f',
+    accent: '#b9ff8f',
+    dark: '#075128',
     glow: '#39ff88',
   },
   other: {
-    base: '#8e929e',
-    accent: '#e3d9cb',
-    dark: '#3d414d',
+    base: '#ff7648',
+    accent: '#ffd0a3',
+    dark: '#621d13',
     glow: '#ff6f61',
   },
 }
 
 function noise(x: number, y: number, seed: number) {
-  return (
+  const value =
     Math.sin(x * 12.9898 + y * 78.233 + seed * 37.719) * 43758.5453123
-  ) % 1
+  return value - Math.floor(value)
+}
+
+function detailNoise(x: number, y: number, seed: number) {
+  return (
+    noise(x, y, seed) * 0.5 +
+    noise(x * 2.1 + 17.2, y * 2.1 - 8.4, seed + 11) * 0.28 +
+    noise(x * 4.3 - 3.7, y * 4.3 + 21.1, seed + 23) * 0.16 +
+    noise(x * 8.2 + 5.8, y * 8.2 - 13.6, seed + 41) * 0.06
+  )
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value))
 }
 
 function mixedColor(a: string, b: string, amount: number) {
@@ -173,49 +187,66 @@ function drawGasGiant(
 ) {
   const variantSettings =
     ({
-    'defi-generic': { bandScale: 1, storm: false, tint: '#9b3fff' },
-    jupiter: { bandScale: 0.72, storm: true, tint: '#5b2bbd' },
-    orca: { bandScale: 1.42, storm: false, tint: '#3436a7' },
-    phoenix: { bandScale: 0.92, storm: false, tint: '#d647b7' },
-    raydium: { bandScale: 1.08, storm: false, tint: '#b76cff' },
+    'defi-generic': { bandScale: 1, stormSize: 0, swirl: 0.72, tint: '#9b3fff' },
+    jupiter: { bandScale: 0.72, stormSize: 1, swirl: 1.08, tint: '#6a20ff' },
+    orca: { bandScale: 1.42, stormSize: 0.34, swirl: 0.42, tint: '#5748ff' },
+    phoenix: { bandScale: 0.92, stormSize: 0, swirl: 0.86, tint: '#e13dcb' },
+    raydium: { bandScale: 1.08, stormSize: 0.28, swirl: 0.92, tint: '#c26fff' },
   } as Partial<
-    Record<PlanetVariant, { bandScale: number; storm: boolean; tint: string }>
-  >)[variant] ?? { bandScale: 1, storm: false, tint: '#9b3fff' }
+    Record<
+      PlanetVariant,
+      { bandScale: number; stormSize: number; swirl: number; tint: string }
+    >
+  >)[variant] ?? { bandScale: 1, stormSize: 0, swirl: 0.72, tint: '#9b3fff' }
 
   for (let y = 0; y < size; y += 1) {
     const band =
       0.5 +
-      Math.sin(y * 0.065 * variantSettings.bandScale) * 0.24 +
-      Math.sin(y * 0.19 * variantSettings.bandScale + 1.7) * 0.11
+      Math.sin(y * 0.085 * variantSettings.bandScale) * 0.28 +
+      Math.sin(y * 0.31 * variantSettings.bandScale + 1.7) * 0.13 +
+      (detailNoise(y * 0.014, y * 0.036, 5) - 0.5) * 0.1
     context.fillStyle = mixedColor(
-      mixedColor(palette.dark, variantSettings.tint, 0.28),
-      mixedColor(palette.accent, variantSettings.tint, 0.34),
-      band,
+      mixedColor(palette.dark, variantSettings.tint, 0.62),
+      mixedColor(palette.accent, variantSettings.tint, 0.54),
+      clamp01(band),
     )
     context.fillRect(0, y, size, 1)
   }
 
-  context.globalAlpha = 0.22
-  for (let i = 0; i < 90; i += 1) {
+  context.globalAlpha = 0.34
+  for (let i = 0; i < Math.round(84 + variantSettings.swirl * 56); i += 1) {
     const y = Math.random() * size
-    context.strokeStyle = i % 3 === 0 ? palette.accent : palette.base
-    context.lineWidth = 1 + Math.random() * 3
+    context.strokeStyle = i % 3 === 0 ? palette.accent : variantSettings.tint
+    context.lineWidth = 1 + Math.random() * 2.2
     context.beginPath()
     context.moveTo(0, y)
     for (let x = 0; x <= size; x += 18) {
-      context.lineTo(x, y + Math.sin(x * 0.025 + i) * 9)
+      context.lineTo(
+        x,
+        y +
+          Math.sin(x * 0.035 + i) * (4 + variantSettings.swirl * 8) +
+          (detailNoise(x * 0.018, y * 0.018, i) - 0.5) * 9,
+      )
     }
     context.stroke()
   }
   context.globalAlpha = 1
 
-  if (variantSettings.storm) {
-    context.fillStyle = 'rgba(198, 78, 160, 0.52)'
+  if (variantSettings.stormSize > 0) {
+    context.fillStyle = 'rgba(255, 92, 218, 0.72)'
     context.beginPath()
-    context.ellipse(size * 0.68, size * 0.58, size * 0.12, size * 0.05, -0.2, 0, Math.PI * 2)
+    context.ellipse(
+      size * 0.68,
+      size * 0.58,
+      size * 0.06 + size * 0.07 * variantSettings.stormSize,
+      size * 0.025 + size * 0.035 * variantSettings.stormSize,
+      -0.2,
+      0,
+      Math.PI * 2,
+    )
     context.fill()
-    context.strokeStyle = 'rgba(255, 210, 255, 0.42)'
-    context.lineWidth = 3
+    context.strokeStyle = 'rgba(255, 226, 255, 0.72)'
+    context.lineWidth = 4
     context.stroke()
   }
 }
@@ -228,9 +259,9 @@ function drawOceanWorld(
 ) {
   const variantSettings =
     ({
-    system: { base: '#244cba', accent: '#c6f7ff', clouds: 0.38 },
-    'spl-token': { base: '#168fc6', accent: '#a8fff5', clouds: 0.62 },
-    'token-2022': { base: '#0a5f9e', accent: '#68d9ff', clouds: 0.46 },
+    system: { base: '#1295ff', accent: '#e8fffb', clouds: 0.38 },
+    'spl-token': { base: '#00d6e7', accent: '#d7fffb', clouds: 0.62 },
+    'token-2022': { base: '#009cff', accent: '#7affff', clouds: 0.46 },
     'token-generic': { base: palette.base, accent: palette.accent, clouds: 0.54 },
   } as Partial<
     Record<PlanetVariant, { base: string; accent: string; clouds: number }>
@@ -238,22 +269,35 @@ function drawOceanWorld(
 
   const gradient = context.createLinearGradient(0, 0, size, size)
   gradient.addColorStop(0, palette.dark)
-  gradient.addColorStop(0.52, variantSettings.base)
+  gradient.addColorStop(0.48, mixedColor(palette.base, variantSettings.base, 0.66))
   gradient.addColorStop(1, variantSettings.accent)
   context.fillStyle = gradient
   context.fillRect(0, 0, size, size)
 
-  context.globalAlpha = 0.58
-  for (let i = 0; i < Math.round(22 + variantSettings.clouds * 28); i += 1) {
-    context.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.7)' : variantSettings.accent
+  context.globalAlpha = 0.34
+  for (let y = 0; y < size; y += 3) {
+    for (let x = 0; x < size; x += 3) {
+      const value = detailNoise(x * 0.012, y * 0.012, 13)
+      context.fillStyle = mixedColor(
+        mixedColor(palette.dark, variantSettings.base, 0.72),
+        palette.accent,
+        clamp01(value * 0.48),
+      )
+      context.fillRect(x, y, 3, 3)
+    }
+  }
+
+  context.globalAlpha = 0.72
+  for (let i = 0; i < Math.round(28 + variantSettings.clouds * 38); i += 1) {
+    context.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.86)' : variantSettings.accent
     context.beginPath()
     const x = Math.random() * size
     const y = Math.random() * size
     context.ellipse(
       x,
       y,
-      36 + Math.random() * 96,
-      8 + Math.random() * 22,
+      22 + Math.random() * 88,
+      5 + Math.random() * 15,
       Math.random() * Math.PI,
       0,
       Math.PI * 2,
@@ -269,35 +313,36 @@ function drawVerdantWorld(
   palette: (typeof planetPalettes)['nft'],
   variant: PlanetVariant,
 ) {
-  const tint =
-    variant === 'magic-eden'
-      ? '#6fff84'
-      : variant === 'tensor'
-        ? '#2cffb6'
-        : variant === 'metaplex'
-          ? '#b2ff5a'
-          : palette.accent
+  const variantSettings =
+    ({
+      'magic-eden': { cloudCount: 30, marbling: 0.022, tint: '#6fff84' },
+      metaplex: { cloudCount: 18, marbling: 0.018, tint: '#bcff42' },
+      'nft-generic': { cloudCount: 24, marbling: 0.025, tint: palette.accent },
+      tensor: { cloudCount: 12, marbling: 0.034, tint: '#2cff90' },
+    } as Partial<
+      Record<PlanetVariant, { cloudCount: number; marbling: number; tint: string }>
+    >)[variant] ?? { cloudCount: 24, marbling: 0.025, tint: palette.accent }
 
   context.fillStyle = palette.dark
   context.fillRect(0, 0, size, size)
 
-  for (let y = 0; y < size; y += 4) {
-    for (let x = 0; x < size; x += 4) {
+  for (let y = 0; y < size; y += 2) {
+    for (let x = 0; x < size; x += 2) {
       const value =
-        0.48 +
-        noise(x * 0.015, y * 0.015, 4) * 0.32 +
-        Math.sin((x + y) * 0.025) * 0.16
+        0.38 +
+        detailNoise(x * 0.018, y * 0.018, 4) * 0.42 +
+        Math.sin((x + y) * variantSettings.marbling) * 0.2
       context.fillStyle =
-        value > 0.52
-          ? mixedColor(palette.base, palette.accent, Math.min(1, value - 0.32))
-          : mixedColor('#12355f', mixedColor(palette.base, tint, 0.35), value)
-      context.fillRect(x, y, 5, 5)
+        value > 0.54
+          ? mixedColor(palette.base, palette.accent, clamp01(value - 0.22))
+          : mixedColor(palette.dark, mixedColor(palette.base, variantSettings.tint, 0.72), clamp01(value))
+      context.fillRect(x, y, 3, 3)
     }
   }
 
-  context.globalAlpha = 0.34
-  context.fillStyle = 'rgba(255,255,255,0.72)'
-  for (let i = 0; i < 24; i += 1) {
+  context.globalAlpha = 0.28
+  context.fillStyle = 'rgba(230,255,225,0.74)'
+  for (let i = 0; i < variantSettings.cloudCount; i += 1) {
     context.beginPath()
     context.ellipse(
       Math.random() * size,
@@ -321,34 +366,49 @@ function drawRockyWorld(
 ) {
   const rockyBase =
     variant === 'rocky-red'
-      ? '#8e5245'
+      ? '#ff5a3d'
       : variant === 'rocky-grey'
-        ? palette.base
-        : '#74675a'
+        ? '#d85c38'
+        : variant === 'rocky-cratered'
+          ? '#ff8b42'
+          : '#e35a2e'
   const craterCount =
-    variant === 'rocky-cratered' ? 64 : variant === 'rocky-red' ? 38 : 46
+    variant === 'rocky-cratered'
+      ? 64
+      : variant === 'rocky-red'
+        ? 38
+        : variant === 'rocky-grey'
+          ? 46
+          : 34
 
-  context.fillStyle = mixedColor(palette.dark, rockyBase, 0.35)
+  context.fillStyle = mixedColor(palette.dark, rockyBase, 0.62)
   context.fillRect(0, 0, size, size)
 
-  for (let y = 0; y < size; y += 3) {
-    for (let x = 0; x < size; x += 3) {
-      const value = 0.3 + Math.abs(noise(x * 0.03, y * 0.03, 9)) * 0.7
-      context.fillStyle = mixedColor(palette.dark, rockyBase, value)
-      context.fillRect(x, y, 4, 4)
+  for (let y = 0; y < size; y += 2) {
+    for (let x = 0; x < size; x += 2) {
+      const value =
+        0.24 +
+        detailNoise(x * 0.028, y * 0.028, 9) * 0.54 +
+        Math.sin((x - y) * 0.022) * 0.12
+      context.fillStyle = mixedColor(
+        palette.dark,
+        mixedColor(rockyBase, palette.accent, 0.22),
+        clamp01(value),
+      )
+      context.fillRect(x, y, 3, 3)
     }
   }
 
   for (let i = 0; i < craterCount; i += 1) {
-    const radius = 4 + Math.random() * 20
+    const radius = 3 + Math.random() * 18
     const x = Math.random() * size
     const y = Math.random() * size
-    context.strokeStyle = 'rgba(20,20,25,0.48)'
-    context.lineWidth = Math.max(1, radius * 0.16)
+    context.strokeStyle = 'rgba(80,18,10,0.72)'
+    context.lineWidth = Math.max(1.2, radius * 0.2)
     context.beginPath()
     context.arc(x, y, radius, 0, Math.PI * 2)
     context.stroke()
-    context.fillStyle = 'rgba(255,235,220,0.12)'
+    context.fillStyle = 'rgba(255,218,162,0.24)'
     context.beginPath()
     context.arc(x - radius * 0.25, y - radius * 0.3, radius * 0.3, 0, Math.PI * 2)
     context.fill()
@@ -363,10 +423,10 @@ function drawCityLights(
   context.clearRect(0, 0, size, size)
   context.strokeStyle = color
   context.fillStyle = color
-  context.lineWidth = 2
-  context.globalAlpha = 0.76
+  context.lineWidth = 1.4
+  context.globalAlpha = 0.38
 
-  for (let y = 24; y < size; y += 48) {
+  for (let y = 24; y < size; y += 56) {
     context.beginPath()
     context.moveTo(0, y)
     for (let x = 0; x <= size; x += 40) {
@@ -375,8 +435,8 @@ function drawCityLights(
     context.stroke()
   }
 
-  context.globalAlpha = 0.92
-  for (let i = 0; i < 150; i += 1) {
+  context.globalAlpha = 0.48
+  for (let i = 0; i < 90; i += 1) {
     context.beginPath()
     context.arc(Math.random() * size, Math.random() * size, 1.4, 0, Math.PI * 2)
     context.fill()

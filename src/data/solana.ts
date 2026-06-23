@@ -4,6 +4,8 @@ import snapshot from './chain-snapshot.json'
 
 const SOLANA_RPC_URL = 'https://api.mainnet-beta.solana.com'
 const LIVE_TIMEOUT_MS = 3_800
+const MIN_PLANET_RADIUS = 0.28
+const MAX_PLANET_RADIUS = 0.62
 
 export type DataSource = 'cached' | 'live'
 export type ActivityCategory = 'defi' | 'token' | 'nft' | 'other'
@@ -122,8 +124,8 @@ export function normalizeBlocks(
     const transactionWeight =
       (block.transactions - minTransactions) / transactionRange
     const rawSize =
-      recency === 1 ? 0.74 : 0.26 + transactionWeight * 0.3 + recency * 0.14
-    const size = Math.min(0.76, rawSize)
+      MIN_PLANET_RADIUS + transactionWeight * (MAX_PLANET_RADIUS - MIN_PLANET_RADIUS)
+    const size = Math.min(MAX_PLANET_RADIUS, rawSize)
 
     return {
       blockTime: block.blockTime ?? null,

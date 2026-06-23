@@ -1,9 +1,14 @@
 import { Connection } from '@solana/web3.js'
-import { rename, writeFile } from 'node:fs/promises'
+import { readFile, rename, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-const RPC_URL = 'https://api.mainnet-beta.solana.com'
-const BLOCK_COUNT = 30
+const BLOCK_COUNT = 100
+const BLOCK_BATCH_SIZE = 5
+const BLOCK_BATCH_DELAY_MS = 350
+const HELIUS_API_KEY_ENV = 'HELIUS_API_KEY'
+const MAX_RATE_LIMIT_RETRIES = 5
+const RETRY_BASE_DELAY_MS = 700
+const REDACTED_RPC_URL = 'https://mainnet.helius-rpc.com/?api-key=<redacted>'
 const PROGRAM_COUNTS = {
   defi: 0,
   infra: 0,
@@ -98,6 +103,76 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
+}
+
+async function loadLocalEnv() {
+  try {
+    const envFile = await readFile(resolve('.env'), 'utf8')
+
+    for (const line of envFile.split(/\r?\n/)) {
+      const trimmedLine = line.trim()
+
+      if (!trimmedLine || trimmedLine.startsWith('#')) {
+        continue
+      }
+
+      const separatorIndex = trimmedLine.indexOf('=')
+
+      if (separatorIndex === -1) {
+        continue
+      }
+
+      const key = trimmedLine.slice(0, separatorIndex).trim()
+      const rawValue = trimmedLine.slice(separatorIndex + 1).trim()
+
+      if (!key || process.env[key] !== undefined) {
+        continue
+      }
+
+      process.env[key] = rawValue.replace(/^['"]|['"]$/g, '')
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      throw error
+    }
+  }
+}
+
+async function getHeliusRpcUrl() {
+  await loadLocalEnv()
+
+  const heliusApiKey = process.env[HELIUS_API_KEY_ENV]?.trim()
+
+  if (!heliusApiKey) {
+    throw new Error(`${HELIUS_API_KEY_ENV} not set`)
+  }
+
+  return `https://mainnet.helius-rpc.com/?api-key=${encodeURIComponent(heliusApiKey)}`
+}
+
+function isRateLimitError(error) {
+  const message = String(error?.message ?? error)
+  return /429|rate.?limit|too many requests/i.test(message)
+}
+
+async function withRateLimitRetry(label, operation) {
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt += 1) {
+    try {
+      return await operation()
+    } catch (error) {
+      if (!isRateLimitError(error) || attempt === MAX_RATE_LIMIT_RETRIES) {
+        throw error
+      }
+
+      const delayMs = RETRY_BASE_DELAY_MS * 2 ** attempt
+      console.warn(
+        `${label} hit a rate limit; retrying in ${delayMs}ms (${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
+      )
+      await sleep(delayMs)
+    }
+  }
+
+  throw new Error(`${label} failed after retry attempts`)
 }
 
 function keyToString(key) {
@@ -251,39 +326,70 @@ function summarizeProgramComposition(block) {
   }
 }
 
-const connection = new Connection(RPC_URL, 'confirmed')
-const latestSlot = await connection.getSlot('confirmed')
-const slots = await connection.getBlocks(
-  Math.max(0, latestSlot - BLOCK_COUNT * 5),
-  latestSlot,
-  'confirmed',
+const startedAt = Date.now()
+const rpcUrl = await getHeliusRpcUrl()
+const connection = new Connection(rpcUrl, 'confirmed')
+const latestSlot = await withRateLimitRetry('getSlot', () =>
+  connection.getSlot('confirmed'),
+)
+const slots = await withRateLimitRetry('getBlocks', () =>
+  connection.getBlocks(
+    Math.max(0, latestSlot - BLOCK_COUNT * 5),
+    latestSlot,
+    'confirmed',
+  ),
 )
 const recentSlots = slots.slice(-BLOCK_COUNT)
 const blocks = []
 
-for (const slot of recentSlots) {
-  const block = await connection.getBlock(slot, {
-    commitment: 'confirmed',
-    maxSupportedTransactionVersion: 0,
-    transactionDetails: 'full',
-  })
+for (let index = 0; index < recentSlots.length; index += BLOCK_BATCH_SIZE) {
+  const slotBatch = recentSlots.slice(index, index + BLOCK_BATCH_SIZE)
+  const batchBlocks = await Promise.all(
+    slotBatch.map(async (slot) => {
+      const block = await withRateLimitRetry(`getBlock ${slot}`, () =>
+        connection.getBlock(slot, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0,
+          transactionDetails: 'full',
+        }),
+      )
 
-  if (block) {
-    blocks.push({
-      blockTime: block.blockTime,
-      slot,
-      transactions: block.transactions.length,
-      ...summarizeProgramComposition(block),
-    })
+      if (!block) {
+        return null
+      }
+
+      return {
+        blockTime: block.blockTime,
+        slot,
+        transactions: block.transactions.length,
+        ...summarizeProgramComposition(block),
+      }
+    }),
+  )
+
+  blocks.push(...batchBlocks.filter((block) => block !== null))
+
+  if (index + BLOCK_BATCH_SIZE < recentSlots.length) {
+    console.log(`Fetched ${blocks.length}/${recentSlots.length} blocks...`)
+    await sleep(BLOCK_BATCH_DELAY_MS)
   }
-
-  await sleep(250)
 }
+
+if (blocks.length !== recentSlots.length) {
+  console.warn(
+    `Expected ${recentSlots.length} blocks but fetched ${blocks.length}; skipped unavailable slots.`,
+  )
+}
+
+const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1)
+console.log(
+  `Fetched ${blocks.length} blocks from Helius in ${elapsedSeconds}s using batches of ${BLOCK_BATCH_SIZE}.`,
+)
 
 const snapshot = {
   generatedAt: new Date().toISOString(),
   network: 'solana-mainnet-beta',
-  rpcUrl: RPC_URL,
+  rpcUrl: REDACTED_RPC_URL,
   blocks,
 }
 const outputPath = resolve('src/data/chain-snapshot.json')

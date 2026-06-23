@@ -51,8 +51,8 @@ export function Block({
   const baseEmissiveIntensity = hot ? 0.055 : 0.006 + recency * 0.018
   const targetEmissiveIntensityRef = useRef(baseEmissiveIntensity)
   const coreColor = useMemo(() => {
-    const color = new Color('#ffffff').lerp(new Color(categoryColor), 0.18)
-    return hot ? color.lerp(new Color('#fff4d7'), 0.1) : color
+    const color = new Color(categoryColor).lerp(new Color('#ffffff'), 0.08)
+    return hot ? color.lerp(new Color('#fff4d7'), 0.06) : color
   }, [categoryColor, hot])
   const glowColor = useMemo(() => new Color(categoryColor), [categoryColor])
   const atmosphereColor = useMemo(
@@ -165,20 +165,20 @@ export function Block({
       ref={groupRef}
     >
       <mesh ref={coreRef}>
-        <sphereGeometry args={[size, 32, 32]} />
+        <sphereGeometry args={[size, 48, 48]} />
         <meshStandardMaterial
           color={coreColor}
           emissive={glowColor}
           emissiveIntensity={baseEmissiveIntensity}
           emissiveMap={cityLightsMap}
           map={surfaceMap}
-          roughness={hot ? 0.42 : 0.62}
-          metalness={0.02}
+          roughness={hot ? 0.34 : 0.48}
+          metalness={0.01}
           ref={materialRef}
         />
       </mesh>
       <mesh scale={hot ? 1.01 : 1.008}>
-        <sphereGeometry args={[size, 32, 32]} />
+        <sphereGeometry args={[size, 40, 40]} />
         <meshBasicMaterial
           alphaTest={0.02}
           side={BackSide}
