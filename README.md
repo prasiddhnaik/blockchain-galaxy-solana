@@ -8,6 +8,49 @@ orbiting planets. Selecting or searching a program triggers a warp transition
 into that program's own system, where recent blocks orbit as planets sized by
 activity.
 
+```mermaid
+flowchart TB
+  subgraph Scene["3D Scene"]
+    HV["Home View
+    Solana ☀️
+    Program Planets 🪐"]
+    WT["Warp Transition
+    6.2s cinematic"]
+    DV["Destination View
+    Program ☀️
+    Block Planets 🪐"]
+  end
+
+  subgraph Data["Data Layer"]
+    SNAP["chain-snapshot.json
+    153 programs, 100 blocks"]
+    HEL["Helius RPC (live search)"]
+    FETCH["safeFetch()
+    timeout + retry + cache"]
+  end
+
+  subgraph Pipeline["Snapshot Refresh"]
+    SCRIPT["update-chain-snapshot.mjs"]
+    MAINNET["Solana Mainnet
+    100 blocks"]
+    SNAP
+  end
+
+  User(["User"]) -->|select / search| HV
+  HV -->|click / search| WT
+  WT -->|enter| DV
+  DV -->|back| WT
+  WT -->|return| HV
+
+  HV -->|load programs| SNAP
+  HV -->|live search| FETCH
+  FETCH --> HEL
+  FETCH -.->|fallback| SNAP
+
+  SCRIPT -->|pnpm refresh:snapshot| MAINNET
+  MAINNET -->|write| SNAP
+```
+
 ## Features
 
 - Solana ecosystem home view with popular programs as planets.
@@ -51,12 +94,3 @@ pnpm build
 pnpm preview
 ```
 
-## Deploy to Vercel
-
-```bash
-pnpm dlx vercel login
-pnpm dlx vercel
-pnpm dlx vercel --prod
-```
-
-Use `pnpm build` as the build command and `dist` as the output directory.
