@@ -7,6 +7,10 @@ const LIVE_TIMEOUT_MS = 3_800
 const PROGRAM_ACTIVITY_TIMEOUT_MS = 4_800
 const PROGRAM_ACTIVITY_BLOCK_COUNT = 25
 const PROGRAM_ACTIVITY_RETRY_DELAY_MS = 450
+const PROGRAM_ACTIVITY_SIGNATURE_PAGE_LIMIT = 1000
+const PROGRAM_ACTIVITY_MAX_SIGNATURE_PAGES = 4
+const HIGH_VOLUME_CACHED_BLOCK_THRESHOLD = 20
+const MIN_LIVE_COVERAGE_RATIO = 0.5
 const MIN_PLANET_RADIUS = 0.28
 const MAX_PLANET_RADIUS = 0.62
 const HELIUS_RPC_ORIGIN = 'https://mainnet.helius-rpc.com/'
@@ -325,6 +329,34 @@ function getCachedProgramActivity(
   }
 }
 
+function getSnapshotProgram(programId: string) {
+  const snapshotFile = snapshot as SnapshotFile
+
+  return (
+    snapshotFile.programs?.find((entry) => entry.programId === programId) ??
+    snapshotFile.topPrograms?.find((entry) => entry.programId === programId) ??
+    null
+  )
+}
+
+function shouldPreferCachedCoverage(
+  programId: string,
+  liveResult: ProgramActivityResult,
+) {
+  const program = getSnapshotProgram(programId)
+
+  if (!program?.slotCounts || program.blockCount < HIGH_VOLUME_CACHED_BLOCK_THRESHOLD) {
+    return false
+  }
+
+  const expectedCoverage = Math.min(PROGRAM_ACTIVITY_BLOCK_COUNT, program.blockCount)
+  const minimumUsefulLiveBlocks = Math.ceil(
+    expectedCoverage * MIN_LIVE_COVERAGE_RATIO,
+  )
+
+  return liveResult.blocks.length < minimumUsefulLiveBlocks
+}
+
 async function withAbortableTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
@@ -422,18 +454,50 @@ async function fetchLiveProgramActivityOnce(
     )) ?? []
   const recentSlots = slots.slice(-PROGRAM_ACTIVITY_BLOCK_COUNT)
   const recentSlotSet = new Set(recentSlots)
-  const signatures =
-    (await fetchJsonRpc<
-      Array<{
-        blockTime?: number | null
-        slot: number
-      }>
-    >(
-      rpcUrl,
-      'getSignaturesForAddress',
-      [programId, { commitment: 'confirmed', limit: 1000 }],
-      signal,
-    )) ?? []
+  const oldestRecentSlot = recentSlots[0] ?? latestSlot
+  const signatures: Array<{
+    blockTime?: number | null
+    signature: string
+    slot: number
+  }> = []
+  let beforeSignature: string | undefined
+
+  for (let page = 0; page < PROGRAM_ACTIVITY_MAX_SIGNATURE_PAGES; page += 1) {
+    const pageSignatures =
+      (await fetchJsonRpc<
+        Array<{
+          blockTime?: number | null
+          signature: string
+          slot: number
+        }>
+      >(
+        rpcUrl,
+        'getSignaturesForAddress',
+        [
+          programId,
+          {
+            before: beforeSignature,
+            commitment: 'confirmed',
+            limit: PROGRAM_ACTIVITY_SIGNATURE_PAGE_LIMIT,
+          },
+        ],
+        signal,
+      )) ?? []
+
+    signatures.push(...pageSignatures)
+
+    const lastSignature = pageSignatures.at(-1)
+
+    if (
+      pageSignatures.length < PROGRAM_ACTIVITY_SIGNATURE_PAGE_LIMIT ||
+      !lastSignature ||
+      lastSignature.slot < oldestRecentSlot
+    ) {
+      break
+    }
+
+    beforeSignature = lastSignature.signature
+  }
   const blocksBySlot = new Map<number, { blockTime: number | null; txCount: number }>()
 
   for (const signature of signatures) {
@@ -515,6 +579,14 @@ export async function fetchProgramActivity(
       programId: normalizedProgramId,
       totalTxns: result.totalTxns,
     })
+
+    if (shouldPreferCachedCoverage(normalizedProgramId, result)) {
+      return getCachedProgramActivity(
+        normalizedProgramId,
+        Math.round(window.performance.now() - startedAt),
+        'Live signatures under-sampled this high-volume program, so this system uses the cached slot-count snapshot for better block coverage.',
+      )
+    }
 
     return {
       ...result,
