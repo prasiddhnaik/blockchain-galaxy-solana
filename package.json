@@ -4,11 +4,19 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "refresh:snapshot": "node scripts/update-chain-snapshot.mjs"
+    "setup": "pnpm install",
+    "dev": "sh scripts/with-node.sh vite",
+    "dev:local": "sh scripts/with-node.sh vite --host 127.0.0.1",
+    "dev:network": "sh scripts/with-node.sh vite --host 0.0.0.0",
+    "build": "sh scripts/with-node.sh tsc -b && sh scripts/with-node.sh vite build",
+    "lint": "sh scripts/with-node.sh eslint .",
+    "check": "pnpm lint && pnpm build",
+    "preview": "sh scripts/with-node.sh vite preview",
+    "preview:local": "sh scripts/with-node.sh vite preview --host 127.0.0.1",
+    "up": "pnpm install && pnpm dev:local",
+    "demo": "pnpm build && pnpm preview:local",
+    "refresh:snapshot": "sh scripts/with-node.sh node scripts/update-chain-snapshot.mjs",
+    "refresh:check": "pnpm refresh:snapshot && pnpm check"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

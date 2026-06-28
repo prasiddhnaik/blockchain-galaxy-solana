@@ -88,9 +88,18 @@ Do not commit `.env`.
 ## Commands
 
 ```bash
+# First-run local dev
 pnpm install
+pnpm up
+
+# Normal development
 pnpm dev
+
+# Verify and build
+pnpm check
 pnpm build
+
+# Production preview
+pnpm demo
 pnpm preview
 ```
-
