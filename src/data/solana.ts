@@ -13,10 +13,14 @@ const HIGH_VOLUME_CACHED_BLOCK_THRESHOLD = 20
 const MIN_LIVE_COVERAGE_RATIO = 0.5
 const MIN_PLANET_RADIUS = 0.28
 const MAX_PLANET_RADIUS = 0.62
-const HELIUS_RPC_ORIGIN = 'https://mainnet.helius-rpc.com/'
+const HELIUS_RPC_ORIGINS = {
+  devnet: 'https://devnet.helius-rpc.com/',
+  'mainnet-beta': 'https://mainnet.helius-rpc.com/',
+} as const
 
 export type DataSource = 'cached' | 'live'
 export type ActivityCategory = 'defi' | 'token' | 'nft' | 'other'
+export type SolanaCluster = keyof typeof HELIUS_RPC_ORIGINS
 
 export type ProgramCounts = Record<
   ActivityCategory | 'infra' | 'vote',
@@ -58,6 +62,7 @@ export type ProgramActivityBlock = {
 export type ProgramActivityResult = {
   blockWindow: number
   blocks: ProgramActivityBlock[]
+  cluster: SolanaCluster
   elapsedMs: number
   name: string | null
   note?: string
@@ -69,6 +74,15 @@ export type ProgramActivityResult = {
 export type KnownProgramMetadata = {
   category: ActivityCategory
   name: string
+}
+
+const SOLANA_ADDRESS_PATTERN = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+const SOLANA_ADDRESS_CANDIDATE_PATTERN = /[1-9A-HJ-NP-Za-km-z]{32,44}/g
+
+export type ParsedProgramInput = {
+  cluster: SolanaCluster
+  kind: 'account' | 'address' | 'program' | 'token'
+  programId: string
 }
 
 const KNOWN_PROGRAM_METADATA = new Map<string, KnownProgramMetadata>([
@@ -282,6 +296,70 @@ export function getKnownProgramMetadata(programId: string) {
   return KNOWN_PROGRAM_METADATA.get(programId) ?? null
 }
 
+function normalizeCluster(cluster: string | null): SolanaCluster {
+  return cluster?.toLowerCase() === 'devnet' ? 'devnet' : 'mainnet-beta'
+}
+
+export function parseProgramInputDetails(input: string): ParsedProgramInput {
+  const trimmedInput = input.trim()
+
+  if (!trimmedInput) {
+    return { cluster: 'mainnet-beta', kind: 'address', programId: '' }
+  }
+
+  if (SOLANA_ADDRESS_PATTERN.test(trimmedInput)) {
+    return { cluster: 'mainnet-beta', kind: 'address', programId: trimmedInput }
+  }
+
+  const candidates = new Set<string>()
+  let cluster: SolanaCluster = 'mainnet-beta'
+  let kind: ParsedProgramInput['kind'] = 'address'
+
+  try {
+    const url = new URL(trimmedInput)
+    cluster = normalizeCluster(url.searchParams.get('cluster'))
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const pathKind = pathParts[0]?.toLowerCase()
+
+    if (pathKind === 'token' || pathKind === 'account') {
+      kind = pathKind
+    } else if (pathKind === 'program') {
+      kind = 'program'
+    }
+
+    const urlParts = [
+      url.pathname,
+      url.search,
+      url.hash,
+      ...url.searchParams.values(),
+    ]
+
+    for (const part of urlParts) {
+      const matches = part.match(SOLANA_ADDRESS_CANDIDATE_PATTERN) ?? []
+
+      for (const match of matches) {
+        candidates.add(match)
+      }
+    }
+  } catch {
+    const matches = trimmedInput.match(SOLANA_ADDRESS_CANDIDATE_PATTERN) ?? []
+
+    for (const match of matches) {
+      candidates.add(match)
+    }
+  }
+
+  const programId = [...candidates].find((candidate) =>
+    SOLANA_ADDRESS_PATTERN.test(candidate),
+  )
+
+  return { cluster, kind, programId: programId ?? trimmedInput }
+}
+
+export function parseProgramInput(input: string) {
+  return parseProgramInputDetails(input).programId
+}
+
 function getProgramName(programId: string) {
   const snapshotFile = snapshot as SnapshotFile
   return (
@@ -295,8 +373,25 @@ function getProgramName(programId: string) {
 function getCachedProgramActivity(
   programId: string,
   elapsedMs: number,
+  cluster: SolanaCluster = 'mainnet-beta',
   note?: string,
 ): ProgramActivityResult {
+  if (cluster !== 'mainnet-beta') {
+    return {
+      blockWindow: 0,
+      blocks: [],
+      cluster,
+      elapsedMs,
+      name: getProgramName(programId),
+      note:
+        note ??
+        'Live devnet activity was unavailable. There is no cached devnet snapshot for this demo.',
+      programId,
+      source: 'cached',
+      totalTxns: 0,
+    }
+  }
+
   const snapshotFile = snapshot as SnapshotFile
   const program =
     snapshotFile.programs?.find((entry) => entry.programId === programId) ??
@@ -320,6 +415,7 @@ function getCachedProgramActivity(
   return {
     blockWindow: recentSlots.length,
     blocks,
+    cluster,
     elapsedMs,
     name: program?.name ?? getProgramName(programId),
     note,
@@ -413,8 +509,54 @@ async function fetchJsonRpc<T>(
   return payload.result as T
 }
 
+type HeliusAsset = {
+  content?: {
+    metadata?: {
+      name?: string
+      symbol?: string
+    }
+  }
+  token_info?: {
+    symbol?: string
+  }
+}
+
+function getHeliusAssetName(asset: HeliusAsset | null | undefined) {
+  const metadataName = asset?.content?.metadata?.name?.trim()
+
+  if (metadataName) {
+    return metadataName
+  }
+
+  return (
+    asset?.content?.metadata?.symbol?.trim() ??
+    asset?.token_info?.symbol?.trim() ??
+    null
+  )
+}
+
+async function fetchLiveAccountName(
+  rpcUrl: string,
+  programId: string,
+  signal: AbortSignal,
+) {
+  try {
+    return getHeliusAssetName(
+      await fetchJsonRpc<HeliusAsset>(
+        rpcUrl,
+        'getAsset',
+        [{ id: programId }],
+        signal,
+      ),
+    )
+  } catch {
+    return null
+  }
+}
+
 async function fetchLiveProgramActivityOnce(
   programId: string,
+  cluster: SolanaCluster,
   signal: AbortSignal,
 ) {
   const heliusApiKey = import.meta.env.VITE_HELIUS_API_KEY as string | undefined
@@ -423,24 +565,29 @@ async function fetchLiveProgramActivityOnce(
     throw new Error('VITE_HELIUS_API_KEY is not configured')
   }
 
-  const rpcUrl = `${HELIUS_RPC_ORIGIN}?api-key=${encodeURIComponent(
+  const rpcOrigin = HELIUS_RPC_ORIGINS[cluster]
+  const rpcUrl = `${rpcOrigin}?api-key=${encodeURIComponent(
     heliusApiKey.trim(),
   )}`
 
   console.info(
     '[Blockchain Galaxy] attempting live fetch',
     {
-      endpoint: `${HELIUS_RPC_ORIGIN}?api-key=<redacted>`,
+      cluster,
+      endpoint: `${rpcOrigin}?api-key=<redacted>`,
       hasKey: true,
       programId,
     },
   )
-  const latestSlot = await fetchJsonRpc<number>(
-    rpcUrl,
-    'getSlot',
-    [{ commitment: 'confirmed' }],
-    signal,
-  )
+  const [latestSlot, liveName] = await Promise.all([
+    fetchJsonRpc<number>(
+      rpcUrl,
+      'getSlot',
+      [{ commitment: 'confirmed' }],
+      signal,
+    ),
+    fetchLiveAccountName(rpcUrl, programId, signal),
+  ])
   const slots =
     (await fetchJsonRpc<number[]>(
       rpcUrl,
@@ -528,8 +675,9 @@ async function fetchLiveProgramActivityOnce(
   return {
     blockWindow: recentSlots.length,
     blocks: activityBlocks,
+    cluster,
     elapsedMs: 0,
-    name: getProgramName(programId),
+    name: getProgramName(programId) ?? liveName,
     programId,
     source: 'live' as const,
     totalTxns: activityBlocks.reduce((sum, block) => sum + block.txCount, 0),
@@ -542,6 +690,7 @@ async function sleep(ms: number) {
 
 export async function fetchProgramActivity(
   programId: string,
+  cluster: SolanaCluster = 'mainnet-beta',
 ): Promise<ProgramActivityResult> {
   const startedAt = window.performance.now()
   const normalizedProgramId = programId.trim()
@@ -550,6 +699,7 @@ export async function fetchProgramActivity(
     return getCachedProgramActivity(
       normalizedProgramId,
       0,
+      cluster,
       'Enter a program name or address to inspect recent activity.',
     )
   }
@@ -557,7 +707,7 @@ export async function fetchProgramActivity(
   try {
     const result = await withAbortableTimeout(async (signal) => {
       try {
-        return await fetchLiveProgramActivityOnce(normalizedProgramId, signal)
+        return await fetchLiveProgramActivityOnce(normalizedProgramId, cluster, signal)
       } catch (error) {
         console.warn('[Blockchain Galaxy] live fetch retrying', {
           error: error instanceof Error ? error.message : String(error),
@@ -569,7 +719,7 @@ export async function fetchProgramActivity(
         }
 
         await sleep(PROGRAM_ACTIVITY_RETRY_DELAY_MS)
-        return fetchLiveProgramActivityOnce(normalizedProgramId, signal)
+        return fetchLiveProgramActivityOnce(normalizedProgramId, cluster, signal)
       }
     }, PROGRAM_ACTIVITY_TIMEOUT_MS)
 
@@ -584,6 +734,7 @@ export async function fetchProgramActivity(
       return getCachedProgramActivity(
         normalizedProgramId,
         Math.round(window.performance.now() - startedAt),
+        cluster,
         'Live signatures under-sampled this high-volume program, so this system uses the cached slot-count snapshot for better block coverage.',
       )
     }
@@ -601,6 +752,7 @@ export async function fetchProgramActivity(
     return getCachedProgramActivity(
       normalizedProgramId,
       Math.round(window.performance.now() - startedAt),
+      cluster,
       'Live RPC was unavailable, so this result came from the cached snapshot.',
     )
   }

@@ -14,12 +14,10 @@ import {
   ACESFilmicToneMapping,
   AdditiveBlending,
   BufferGeometry,
-  CanvasTexture,
   DoubleSide,
   Group,
-  LinearFilter,
   MeshBasicMaterial,
-  RepeatWrapping,
+  ShaderMaterial,
   Vector3,
 } from 'three'
 import type {
@@ -30,12 +28,14 @@ import type {
   ProgramActivityResult,
   ProgramCounts,
   ProgramRollup,
+  SolanaCluster,
 } from '../data/solana'
 import {
   fetchProgramActivity,
   getCachedBlockBySlot,
   getCachedProgramRollup,
   getKnownProgramMetadata,
+  parseProgramInputDetails,
   useSolanaBlocks,
 } from '../data/solana'
 import { Block } from './Block'
@@ -103,7 +103,7 @@ const destinationSunActivityScale = {
 const defaultVisibleBlockCount = 30
 const minProgramPlanetRadius = 0.28
 const maxProgramPlanetRadius = 0.62
-const defaultSearchPlaceholder = 'Search program or paste program ID'
+const defaultSearchPlaceholder = 'Search program, paste program ID, or explorer URL'
 const warpDurationMs = 6200
 const reducedMotionWarpDurationMs = 520
 
@@ -339,6 +339,25 @@ function getDestinationActivityMagnitude(
   }
 
   return program?.totalTxns ?? 0
+}
+
+function getParsedProgramFallbackName(
+  parsedProgramInput: ReturnType<typeof parseProgramInputDetails>,
+) {
+  const clusterPrefix =
+    parsedProgramInput.cluster === 'devnet' ? 'Devnet ' : ''
+  const kindLabel =
+    parsedProgramInput.kind === 'token'
+      ? 'Token'
+      : parsedProgramInput.kind === 'account'
+        ? 'Account'
+        : parsedProgramInput.kind === 'program'
+          ? 'Program'
+          : ''
+
+  return kindLabel
+    ? `${clusterPrefix}${kindLabel} ${shortProgramId(parsedProgramInput.programId)}`
+    : null
 }
 
 function createOrbitSpecs(
@@ -906,163 +925,64 @@ function NebulaDepth({ prefersReducedMotion }: { prefersReducedMotion: boolean }
   )
 }
 
-function createSolarGranulationTexture() {
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 256
-  const context = canvas.getContext('2d')
+const sunVertexShader = `
+  varying vec3 vSurfacePosition;
+  varying vec3 vViewNormal;
 
-  if (!context) {
-    throw new Error('Canvas 2D context is unavailable.')
+  void main() {
+    vSurfacePosition = normalize(position);
+    vViewNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const sunFragmentShader = `
+  uniform float uTime;
+  varying vec3 vSurfacePosition;
+  varying vec3 vViewNormal;
+
+  float plasma(vec3 position, float time) {
+    float flow =
+      sin(position.x * 8.0 + time * 0.72 + position.y * 2.6) * 0.18 +
+      cos(position.z * 9.5 - time * 0.58 + position.x * 1.8) * 0.15 +
+      sin((position.x + position.y - position.z) * 12.0 + time * 0.44) * 0.1 +
+      cos(dot(position, vec3(13.0, -8.0, 11.0)) + time * 0.36) * 0.07;
+
+    float cellA = sin(dot(position, vec3(18.0, 8.0, -11.0)) + time * 0.8);
+    float cellB = cos(dot(position, vec3(-10.0, 17.0, 12.0)) - time * 0.62);
+
+    return flow + max(0.0, cellA * cellB) * 0.2;
   }
 
-  const image = context.createImageData(canvas.width, canvas.height)
-  const palette = [
-    [54, 6, 10],
-    [126, 18, 18],
-    [226, 72, 35],
-    [255, 174, 60],
-    [255, 246, 177],
-  ]
-  const mixChannel = (start: number, end: number, amount: number) =>
-    Math.round(start + (end - start) * amount)
+  void main() {
+    vec3 position = normalize(vSurfacePosition);
+    float heat = clamp(0.64 + plasma(position, uTime), 0.0, 1.0);
 
-  for (let y = 0; y < canvas.height; y += 1) {
-    const v = y / canvas.height
-    const latitude = (v - 0.5) * Math.PI
-    const verticalCore = Math.max(0, 1 - Math.abs(v - 0.5) * 1.85)
+    vec3 ember = vec3(0.98, 0.22, 0.08);
+    vec3 orange = vec3(1.0, 0.5, 0.13);
+    vec3 gold = vec3(1.0, 0.77, 0.28);
+    vec3 whiteHot = vec3(1.0, 0.96, 0.64);
 
-    for (let x = 0; x < canvas.width; x += 1) {
-      const u = x / canvas.width
-      const longitude = u * Math.PI * 2
-      const plasma =
-        Math.sin(longitude * 4 + Math.sin(latitude * 2.4) * 1.1) * 0.18 +
-        Math.cos(longitude * 7 - latitude * 3.2) * 0.14 +
-        Math.sin(longitude * 11 + latitude * 5.1) * 0.09 +
-        Math.cos(longitude * 17 - latitude * 8.4) * 0.045
-      const cell =
-        Math.sin(Math.cos(longitude) * 12 + Math.sin(latitude * 2.2) * 7) *
-        Math.cos(Math.sin(longitude) * 10 - Math.cos(latitude * 1.7) * 6)
-      const heat = Math.min(
-        0.98,
-        Math.max(0, 0.43 + verticalCore * 0.34 + plasma + Math.max(0, cell) * 0.18),
-      )
-      const scaled = heat * (palette.length - 1)
-      const index = Math.min(palette.length - 2, Math.floor(scaled))
-      const amount = scaled - index
-      const cold = palette[index]
-      const hot = palette[index + 1]
-      const pixel = (y * canvas.width + x) * 4
+    vec3 color = mix(ember, orange, smoothstep(0.18, 0.56, heat));
+    color = mix(color, gold, smoothstep(0.46, 0.78, heat));
+    color = mix(color, whiteHot, smoothstep(0.76, 1.0, heat));
 
-      image.data[pixel] = mixChannel(cold[0], hot[0], amount)
-      image.data[pixel + 1] = mixChannel(cold[1], hot[1], amount)
-      image.data[pixel + 2] = mixChannel(cold[2], hot[2], amount)
-      image.data[pixel + 3] = 255
-    }
+    float fissure =
+      smoothstep(
+        0.68,
+        0.94,
+        abs(sin(dot(position, vec3(24.0, -11.0, 17.0)) + uTime * 0.32)) *
+          abs(cos(dot(position, vec3(-16.0, 21.0, 9.0)) - uTime * 0.28))
+      );
+    color = mix(color, vec3(0.72, 0.08, 0.035), fissure * 0.18);
+
+    float viewFacing = clamp(abs(vViewNormal.z), 0.0, 1.0);
+    float centerHeat = smoothstep(0.04, 0.86, viewFacing);
+    color += vec3(0.28, 0.12, 0.02) * centerHeat;
+
+    gl_FragColor = vec4(color, 1.0);
   }
-
-  context.putImageData(image, 0, 0)
-
-  context.globalCompositeOperation = 'screen'
-  for (let y = -24; y < canvas.height + 32; y += 34) {
-    for (let x = -32; x < canvas.width + 48; x += 42) {
-      const wave =
-        Math.sin(x * 0.08) +
-        Math.cos(y * 0.11) +
-        Math.sin((x + y) * 0.045)
-      const radius = 14 + Math.abs(wave) * 11
-      const mirroredX = ((x % canvas.width) + canvas.width) % canvas.width
-      const granule = context.createRadialGradient(mirroredX, y, 0, mirroredX, y, radius)
-
-      granule.addColorStop(0, wave > 0 ? 'rgb(255 251 203 / 0.36)' : 'rgb(255 154 63 / 0.22)')
-      granule.addColorStop(0.62, 'rgb(255 111 48 / 0.13)')
-      granule.addColorStop(1, 'rgb(255 111 48 / 0)')
-      context.fillStyle = granule
-      context.beginPath()
-      context.arc(mirroredX, y, radius, 0, Math.PI * 2)
-      context.fill()
-
-      if (mirroredX < radius) {
-        context.beginPath()
-        context.arc(mirroredX + canvas.width, y, radius, 0, Math.PI * 2)
-        context.fill()
-      }
-
-      if (mirroredX > canvas.width - radius) {
-        context.beginPath()
-        context.arc(mirroredX - canvas.width, y, radius, 0, Math.PI * 2)
-        context.fill()
-      }
-    }
-  }
-
-  context.globalCompositeOperation = 'multiply'
-  context.lineWidth = 5.5
-  context.lineCap = 'round'
-  context.lineJoin = 'round'
-
-  for (let index = 0; index < 18; index += 1) {
-    const y = 12 + ((index * 47) % canvas.height)
-    const amplitude = 11 + (index % 4) * 3.5
-
-    context.beginPath()
-    for (let x = -12; x <= canvas.width + 12; x += 10) {
-      const waveY =
-        y +
-        Math.sin(x * 0.025 + index * 1.55) * amplitude +
-        Math.sin(x * 0.064 + index * 0.7) * 4
-
-      if (x === -12) {
-        context.moveTo(x, waveY)
-      } else {
-        context.lineTo(x, waveY)
-      }
-    }
-    context.strokeStyle =
-      index % 3 === 0 ? 'rgb(46 5 10 / 0.34)' : 'rgb(93 13 15 / 0.22)'
-    context.stroke()
-  }
-
-  context.globalCompositeOperation = 'screen'
-  context.lineWidth = 3.4
-  context.lineCap = 'round'
-
-  for (let index = 0; index < 24; index += 1) {
-    const y = 18 + ((index * 53) % canvas.height)
-    const amplitude = 8 + (index % 5) * 2.5
-
-    context.beginPath()
-    for (let x = -8; x <= canvas.width + 8; x += 8) {
-      const waveY =
-        y +
-        Math.sin(x * 0.03 + index * 1.7) * amplitude +
-        Math.sin(x * 0.087 + index) * 2.8
-
-      if (x === -8) {
-        context.moveTo(x, waveY)
-      } else {
-        context.lineTo(x, waveY)
-      }
-    }
-    context.strokeStyle =
-      index % 4 === 0 ? 'rgb(255 252 190 / 0.44)' : 'rgb(255 130 52 / 0.28)'
-    context.stroke()
-  }
-
-  context.globalCompositeOperation = 'multiply'
-  context.fillStyle = 'rgb(76 8 13 / 0.12)'
-  context.fillRect(0, 0, canvas.width, canvas.height)
-
-  const texture = new CanvasTexture(canvas)
-  texture.wrapS = RepeatWrapping
-  texture.wrapT = RepeatWrapping
-  texture.repeat.set(1, 1)
-  texture.magFilter = LinearFilter
-  texture.minFilter = LinearFilter
-  texture.needsUpdate = true
-
-  return texture
-}
+`
 
 function Sun({
   color = '#ffb347',
@@ -1076,16 +996,20 @@ function Sun({
   const flareTwoRef = useRef<Group>(null)
   const flareThreeRef = useRef<Group>(null)
   const coronaRef = useRef<Group>(null)
+  const surfaceMaterialRef = useRef<ShaderMaterial>(null)
   const hotShellMaterialRef = useRef<MeshBasicMaterial>(null)
   const innerCoronaMaterialRef = useRef<MeshBasicMaterial>(null)
   const outerCoronaMaterialRef = useRef<MeshBasicMaterial>(null)
   const flareOneMaterialRef = useRef<MeshBasicMaterial>(null)
   const flareTwoMaterialRef = useRef<MeshBasicMaterial>(null)
   const flareThreeMaterialRef = useRef<MeshBasicMaterial>(null)
-  const surfaceMap = useMemo(() => createSolarGranulationTexture(), [])
 
   useFrame(({ clock }) => {
     const elapsed = clock.elapsedTime
+
+    if (surfaceMaterialRef.current) {
+      surfaceMaterialRef.current.uniforms.uTime.value = elapsed
+    }
 
     if (surfaceRef.current) {
       const convectionPulse =
@@ -1096,10 +1020,6 @@ function Sun({
       surfaceRef.current.rotation.z = Math.sin(elapsed * 0.38) * 0.046
       surfaceRef.current.scale.setScalar(convectionPulse)
     }
-
-    surfaceMap.offset.x = (elapsed * 0.018) % 1
-    surfaceMap.offset.y = (elapsed * 0.006) % 1
-    surfaceMap.repeat.set(1, 1)
 
     if (hotShellMaterialRef.current) {
       hotShellMaterialRef.current.opacity =
@@ -1164,9 +1084,15 @@ function Sun({
       <group ref={surfaceRef}>
         <mesh>
           <sphereGeometry args={[radius, 72, 72]} />
-          <meshBasicMaterial
-            color="#fff0b2"
-            map={surfaceMap}
+          <shaderMaterial
+            ref={surfaceMaterialRef}
+            args={[
+              {
+                fragmentShader: sunFragmentShader,
+                uniforms: { uTime: { value: 0 } },
+                vertexShader: sunVertexShader,
+              },
+            ]}
             toneMapped={false}
           />
         </mesh>
@@ -1492,6 +1418,8 @@ export function Galaxy() {
   const [activeProgramId, setActiveProgramId] = useState<string | null>(
     initialProgram?.programId ?? null,
   )
+  const [activeProgramCluster, setActiveProgramCluster] =
+    useState<SolanaCluster>('mainnet-beta')
   const [activityResult, setActivityResult] =
     useState<ProgramActivityResult | null>(null)
   const [selectedDestinationBlockId, setSelectedDestinationBlockId] =
@@ -1501,7 +1429,8 @@ export function Galaxy() {
   const activityStatus =
     activeProgramId === null
       ? 'idle'
-      : activityResult?.programId === activeProgramId
+      : activityResult?.programId === activeProgramId &&
+          activityResult.cluster === activeProgramCluster
         ? 'ready'
         : 'loading'
   const popularPrograms = useMemo(
@@ -1515,14 +1444,35 @@ export function Galaxy() {
       ),
     [activityResult, destinationProgram],
   )
+  const displayedDestinationProgram = useMemo(() => {
+    if (!destinationProgram) {
+      return null
+    }
+
+    if (
+      activityResult?.programId !== destinationProgram.programId ||
+      activityResult.cluster !== activeProgramCluster
+    ) {
+      return destinationProgram
+    }
+
+    return {
+      ...destinationProgram,
+      name: activityResult.name ?? destinationProgram.name,
+      totalTxns:
+        activityResult.totalTxns > 0
+          ? activityResult.totalTxns
+          : destinationProgram.totalTxns,
+    }
+  }, [activeProgramCluster, activityResult, destinationProgram])
   const destinationPlanets = useMemo(
     () =>
       createProgramActivityPlanets(
         activityResult,
-        destinationProgram,
+        displayedDestinationProgram,
         destinationSunRadius,
       ),
-    [activityResult, destinationProgram, destinationSunRadius],
+    [activityResult, displayedDestinationProgram, destinationSunRadius],
   )
   const selectedDestinationBlock =
     selectedDestinationBlockId === null
@@ -1588,7 +1538,8 @@ export function Galaxy() {
 
   const selectProgram = useCallback(
     (programId: string) => {
-      const normalizedProgramId = programId.trim()
+      const parsedProgramInput = parseProgramInputDetails(programId)
+      const normalizedProgramId = parsedProgramInput.programId
 
       if (!normalizedProgramId || warpDirection !== null) {
         return
@@ -1601,6 +1552,7 @@ export function Galaxy() {
         (program) => program.programId === normalizedProgramId,
       )
       const knownMetadata = getKnownProgramMetadata(normalizedProgramId)
+      const fallbackName = getParsedProgramFallbackName(parsedProgramInput)
       const targetProgram: ProgramRollup =
         knownProgram
           ? {
@@ -1612,19 +1564,22 @@ export function Galaxy() {
               appearedInSlots: [],
               blockCount: 0,
               category: knownMetadata?.category ?? 'other',
-              name: knownMetadata?.name ?? null,
+              name: knownMetadata?.name ?? fallbackName,
               programId: normalizedProgramId,
               totalTxns: 0,
             } satisfies ProgramRollup)
 
       setSelectedProgramId(planetIndex === -1 ? null : planetIndex)
       setSelectedDestinationBlockId(null)
-      setSearchValue(knownProgram?.name ?? knownMetadata?.name ?? normalizedProgramId)
+      setSearchValue(
+        knownProgram?.name ?? knownMetadata?.name ?? fallbackName ?? normalizedProgramId,
+      )
       if (searchInputRef.current) {
         searchInputRef.current.value =
-          knownProgram?.name ?? knownMetadata?.name ?? normalizedProgramId
+          knownProgram?.name ?? knownMetadata?.name ?? fallbackName ?? normalizedProgramId
       }
       setActiveProgramId(normalizedProgramId)
+      setActiveProgramCluster(parsedProgramInput.cluster)
       setActivityResult(null)
       beginWarpToDestination(targetProgram)
     },
@@ -1654,7 +1609,8 @@ export function Galaxy() {
     event.preventDefault()
 
     const submittedValue = searchInputRef.current?.value ?? searchValue
-    const normalizedSearchValue = submittedValue.trim().toLowerCase()
+    const parsedProgramInput = parseProgramInputDetails(submittedValue)
+    const normalizedSearchValue = parsedProgramInput.programId.trim().toLowerCase()
     const matchingProgram = popularPrograms.find(
       (program) =>
         program.name?.toLowerCase() === normalizedSearchValue ||
@@ -1671,7 +1627,7 @@ export function Galaxy() {
 
     let cancelled = false
 
-    fetchProgramActivity(activeProgramId).then((result) => {
+    fetchProgramActivity(activeProgramId, activeProgramCluster).then((result) => {
       if (!cancelled) {
         setActivityResult(result)
       }
@@ -1680,7 +1636,7 @@ export function Galaxy() {
     return () => {
       cancelled = true
     }
-  }, [activeProgramId])
+  }, [activeProgramCluster, activeProgramId])
 
   return (
     <main className="galaxy-shell" ref={shellRef}>
@@ -1716,10 +1672,10 @@ export function Galaxy() {
             activityResult={activityResult}
             activityStatus={activityStatus}
             onReturnHome={returnHome}
-            program={destinationProgram}
+            program={displayedDestinationProgram}
           />
           <BlockInfoPanel
-            inspectedProgram={destinationProgram}
+            inspectedProgram={displayedDestinationProgram}
             selectedBlock={selectedDestinationBlock}
             source={destinationSource}
           />
@@ -1755,19 +1711,19 @@ export function Galaxy() {
             selectedBlockId={selectedDestinationBlockId}
             setSelectedBlockId={setSelectedDestinationBlockId}
             sunColor={
-              destinationProgram
-                ? categoryColors[destinationProgram.category]
+              displayedDestinationProgram
+                ? categoryColors[displayedDestinationProgram.category]
                 : '#28ffe7'
             }
             sunLabel={
-              destinationProgram
-                ? (destinationProgram.name ??
-                  shortProgramId(destinationProgram.programId))
+              displayedDestinationProgram
+                ? (displayedDestinationProgram.name ??
+                  shortProgramId(displayedDestinationProgram.programId))
                 : 'Program System'
             }
             sunRadius={destinationSunRadius}
             sunSubLabel={getDestinationSunSubLabel(
-              destinationProgram,
+              displayedDestinationProgram,
               activityResult,
               activityStatus,
             )}
@@ -1888,6 +1844,7 @@ function DestinationHud({
 }) {
   const programName = program?.name ?? shortProgramId(program?.programId ?? '')
   const category = program ? categoryLabels[program.category] : 'Program'
+  const clusterLabel = activityResult?.cluster === 'devnet' ? 'Devnet ' : ''
   const sourceLabel =
     activityResult?.source === 'live'
       ? 'LIVE'
@@ -1904,7 +1861,7 @@ function DestinationHud({
         <span>Destination</span>
         <strong>{programName || 'Program System'}</strong>
         <p>
-          {category} system · {sourceLabel} ·{' '}
+          {clusterLabel}{category} system · {sourceLabel} ·{' '}
           {activityStatus === 'ready'
             ? `${activityResult?.blocks.length ?? 0} block planets`
             : 'system loading...'}
@@ -1930,8 +1887,9 @@ function getDestinationSunSubLabel(
         ? 'CACHED'
         : 'LOADING'
   const totalTxns = activityResult?.totalTxns ?? program.totalTxns
+  const clusterLabel = activityResult?.cluster === 'devnet' ? 'Devnet · ' : ''
 
-  return `${categoryLabels[program.category]} · ${totalTxns.toLocaleString()} txns · ${sourceLabel}`
+  return `${clusterLabel}${categoryLabels[program.category]} · ${totalTxns.toLocaleString()} txns · ${sourceLabel}`
 }
 
 function WarpOverlay({
